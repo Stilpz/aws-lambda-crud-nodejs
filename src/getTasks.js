@@ -16,6 +16,11 @@ const getTasks = async (event) => {
         };
     } catch (error) {
         console.error("Error retrieving tasks:", error);
+
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Could not retrieve tasks" }),
+        };
     }
 }
 
