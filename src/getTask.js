@@ -6,7 +6,7 @@ const getTask = async (event) => {
 
     try {
         const result = await dynamoDb.get({
-            TableName: "TaskTable",
+            TableName: process.env.TABLE_NAME,
             Key: { id },
         }).promise();
 
