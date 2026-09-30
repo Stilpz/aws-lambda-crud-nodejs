@@ -15,6 +15,7 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 - [Local Development](#local-development)
 - [Deployment and Cleanup](#deployment-and-cleanup)
 - [Known Limitations](#known-limitations)
+- [Branching and Release Workflow](#branching-and-release-workflow)
 - [Contributing](#contributing)
 
 ## Overview
@@ -124,15 +125,31 @@ curl -X POST $API_URL/tasks \
 
 ### `GET /tasks`: list tasks
 
-Returns an array with all tasks.
+Returns one page of tasks. Use `nextToken` to fetch the following page.
+
+| Query parameter | Description |
+| --- | --- |
+| `limit` | Optional. Page size, an integer from 1 to 100. Defaults to 50. |
+| `nextToken` | Optional. The `nextToken` returned by the previous page. |
 
 ```bash
-curl $API_URL/tasks
+curl "$API_URL/tasks?limit=10"
+curl "$API_URL/tasks?limit=10&nextToken=<token from the previous response>"
 ```
+
+```json
+{
+  "items": [{ "id": "0b9f5c1e-6c2a-4f0e-9d0b-2f1f3f0a7a11", "title": "Write docs", "description": "Add a README", "createdAt": "2026-09-29T15:04:05.000Z", "done": false }],
+  "nextToken": "eyJpZCI6IjBiOWY1YzFlLTZjMmEtNGYwZS05ZDBiLTJmMWYzZjBhN2ExMSJ9"
+}
+```
+
+`nextToken` is `null` when there are no more pages. Keep requesting pages until it is `null`: a page can be empty while a token is still returned, for example when the last page ends exactly at `limit`. Tokens are opaque, so pass them back unchanged.
 
 | Status | Meaning |
 | --- | --- |
-| 200 | Array of tasks |
+| 200 | `{ items, nextToken }` |
+| 400 | `limit` is not an integer from 1 to 100, or `nextToken` is invalid |
 | 500 | `Could not retrieve tasks` |
 
 ### `GET /tasks/{id}`: get one task
@@ -221,7 +238,7 @@ To add an endpoint:
 
 ```bash
 serverless deploy                      # deploy everything to the default stage (dev)
-serverless deploy --stage prod         # deploy to another stage
+serverless deploy --stage staging      # deploy to another stage (staging, prod)
 serverless deploy function -f getTask  # quickly redeploy one function's code
 serverless logs -f getTask --tail      # stream a function's logs
 serverless remove                      # delete the whole stack
@@ -229,7 +246,7 @@ serverless remove                      # delete the whole stack
 
 `serverless remove` also deletes `TaskTable` and every task in it.
 
-Note that the table is named `TaskTable` regardless of the stage, so two stages deployed to the same account and region would conflict. Deploy each stage to a separate account or region, or make the table name stage-dependent first.
+Each stage has its own table, named `TaskTable-<stage>`, so stages can share an AWS account and region without touching each other's data.
 
 ## Known Limitations
 
@@ -237,19 +254,43 @@ This is a learning-oriented project and is not production-ready as is:
 
 - **No authentication.** The API is public; anyone with the URL can read and change data. Add an [authorizer](https://www.serverless.com/framework/docs/providers/aws/events/http-api) before real use.
 - **`POST /tasks` does not validate its input** and returns `200` instead of `201`. Invalid JSON will make the function fail.
-- **`GET /tasks` uses a table `Scan` without pagination**, so it only returns the first page (up to 1 MB) of results.
+- **`GET /tasks` uses a table `Scan`**, which reads the table page by page, so cost and latency grow with the table size. Listing by owner or status would need a global secondary index and a `Query`.
 - **The IAM policy grants `dynamodb:*`** on the table; narrowing it to the actions actually used (`PutItem`, `GetItem`, `Scan`, `UpdateItem`, `DeleteItem`) is recommended.
 - **No automated tests or linting** are configured yet.
 - **No license file.** Add one before accepting outside contributions or redistributing.
+
+## Branching and Release Workflow
+
+Four long-lived branches carry a change from review to release:
+
+| Branch | Purpose | Stage | Deploy command |
+| --- | --- | --- | --- |
+| `development` | Integration. Every pull request targets this branch. | `dev` | `serverless deploy --stage dev` |
+| `staging` | Pre-release validation. | `staging` | `serverless deploy --stage staging` |
+| `production` | Released code. This is what runs in production. | `prod` | `serverless deploy --stage prod` |
+| `main` | Archive of released code. Never committed to directly. | none | not deployed |
+
+```
+feature branch ──PR──▶ development ──PR──▶ staging ──PR──▶ production ──PR──▶ main
+                          (dev)            (staging)         (prod)         (archive)
+```
+
+- Work branches start from `development`. Names are lowercase, use hyphens between words, have 3 to 5 words, contain no spaces, accents or special characters, and do not end with a hyphen, for example `add-task-pagination`.
+- Promote a change by opening a pull request from one branch to the next one. Use a merge commit rather than squash, so the branches keep the same history and do not diverge.
+- After a release is live in `production`, open a pull request from `production` to `main`. `main` only receives code that has already been released, so it stays unaltered.
+- For an urgent fix, branch from `production`, open a pull request back to `production`, and then merge the fix into `staging` and `development` so it is not lost in the next promotion.
+- CI (lint and tests) runs on pushes and pull requests for all four branches. Deployments are manual.
+
+Recommended repository settings: make `development` the default branch so new pull requests target it, and protect all four branches by requiring a pull request, passing CI and disallowing force pushes and deletion.
 
 ## Contributing
 
 Contributions are welcome.
 
-1. Fork the repository and create a branch from `main`: `git checkout -b feature/my-change`.
+1. Fork the repository and create a branch from `development`, following the naming rules above: `git checkout -b add-my-change`.
 2. Make your change, keeping the style of the surrounding code.
 3. Deploy to your own AWS account and verify the affected endpoints manually.
 4. Keep commits small and focused, with a descriptive title and a message explaining what changed and why.
-5. Open a pull request describing the change and how you tested it.
+5. Open a pull request against `development` describing the change and how you tested it.
 
 Never commit AWS credentials, access keys or `.env` files. `node_modules` and `.serverless` are already git-ignored.

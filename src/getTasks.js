@@ -1,20 +1,31 @@
-const AWS = require("aws-sdk");
+import { dynamoDb } from "./db.js";
+import { encodeNextToken, InvalidPaginationError, parsePagination } from "./pagination.js";
 
 const getTasks = async (event) => {
     try {
-        const dynamoDb = new AWS.DynamoDB.DocumentClient();
+        const { limit, exclusiveStartKey } = parsePagination(event.queryStringParameters);
 
-        const result= await dynamoDb.scan({
-            TableName : 'TaskTable'
+        const result = await dynamoDb.scan({
+            TableName: process.env.TABLE_NAME,
+            Limit: limit,
+            ExclusiveStartKey: exclusiveStartKey,
         }).promise();
-
-        const tasks = result.Items;
 
         return {
             statusCode: 200,
-            body: JSON.stringify(tasks),
+            body: JSON.stringify({
+                items: result.Items,
+                nextToken: encodeNextToken(result.LastEvaluatedKey),
+            }),
         };
     } catch (error) {
+        if (error instanceof InvalidPaginationError) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ message: error.message }),
+            };
+        }
+
         console.error("Error retrieving tasks:", error);
 
         return {
@@ -24,6 +35,6 @@ const getTasks = async (event) => {
     }
 }
 
-module.exports = {
+export {
     getTasks,
 }
