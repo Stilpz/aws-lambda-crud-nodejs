@@ -1,6 +1,6 @@
 import { dynamoDb } from "./db.js";
 
-const getTasks = async (event) => {
+const getTasks = async () => {
     try {
         const result= await dynamoDb.scan({
             TableName: process.env.TABLE_NAME
