@@ -21,7 +21,7 @@ const addTaskHandler = async (event) => {
 
     try {
         await dynamoDb.put({
-            TableName: "TaskTable",
+            TableName: process.env.TABLE_NAME,
             Item: newTask,
             ConditionExpression: "attribute_not_exists(id)",
         }).promise();
