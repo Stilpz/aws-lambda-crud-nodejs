@@ -9,6 +9,8 @@ provider:
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
+  environment:
+    TABLE_NAME: !Ref TaskTable
   iam:
     role:
       statements:
