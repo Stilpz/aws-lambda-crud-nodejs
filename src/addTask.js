@@ -1,8 +1,7 @@
 import { randomUUID } from "crypto";
 import AWS from "aws-sdk";
 
-import middy from "@middy/core";
-import jsonBodyParser from "@middy/http-json-body-parser";
+import { withJsonBody } from "./middleware.js";
 
 const addTaskHandler = async (event) => {
     const dynamoDb = new AWS.DynamoDB.DocumentClient();
@@ -31,4 +30,4 @@ const addTaskHandler = async (event) => {
 
 };
 
-export const addTask = middy(addTaskHandler).use(jsonBodyParser());
+export const addTask = withJsonBody(addTaskHandler);
