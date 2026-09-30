@@ -1,12 +1,11 @@
-const AWS = require("aws-sdk");
+import { dynamoDb } from "./db.js";
 
 const getTask = async (event) => {
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
     const { id } = event.pathParameters;
 
     try {
         const result = await dynamoDb.get({
-            TableName: "TaskTable",
+            TableName: process.env.TABLE_NAME,
             Key: { id },
         }).promise();
 
@@ -31,6 +30,6 @@ const getTask = async (event) => {
     }
 }
 
-module.exports = {
+export {
     getTask,
 }
