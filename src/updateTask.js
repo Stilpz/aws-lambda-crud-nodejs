@@ -1,4 +1,5 @@
 import AWS from "aws-sdk";
+import { withJsonBody } from "./middleware.js";
 
 const FIELD_VALIDATORS = {
     done: (value) => typeof value === 'boolean',
@@ -6,18 +7,10 @@ const FIELD_VALIDATORS = {
     description: (value) => typeof value === 'string',
 };
 
-const updateTask = async (event) => {
+const updateTaskHandler = async (event) => {
     const { id } = event.pathParameters;
 
-    let body;
-    try {
-        body = JSON.parse(event.body);
-    } catch (error) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: 'Request body must be valid JSON' }),
-        };
-    }
+    const body = event.body;
 
     const fields = Object.keys(FIELD_VALIDATORS).filter((key) => body[key] !== undefined);
 
@@ -73,6 +66,4 @@ const updateTask = async (event) => {
     }
 };
 
-export {
-    updateTask,
-};
+export const updateTask = withJsonBody(updateTaskHandler);
