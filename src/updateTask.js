@@ -1,6 +1,6 @@
-import AWS from "aws-sdk";
 import { withJsonBody } from "./middleware.js";
 import { updateTaskSchema } from "./schemas.js";
+import { dynamoDb } from "./db.js";
 
 const UPDATABLE_FIELDS = ['done', 'title', 'description'];
 
@@ -14,8 +14,6 @@ const updateTaskHandler = async (event) => {
     const updateExpression = 'set ' + fields.map((key) => `#${key} = :${key}`).join(', ');
     const expressionAttributeNames = Object.fromEntries(fields.map((key) => [`#${key}`, key]));
     const expressionAttributeValues = Object.fromEntries(fields.map((key) => [`:${key}`, body[key]]));
-
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
     try {
         await dynamoDb.update({
