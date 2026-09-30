@@ -19,7 +19,7 @@ const updateTaskHandler = async (event) => {
 
     try {
         await dynamoDb.update({
-            TableName: 'TaskTable',
+            TableName: process.env.TABLE_NAME,
             Key: { id },
             UpdateExpression: updateExpression,
             ExpressionAttributeNames: expressionAttributeNames,
