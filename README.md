@@ -125,15 +125,31 @@ curl -X POST $API_URL/tasks \
 
 ### `GET /tasks`: list tasks
 
-Returns an array with all tasks.
+Returns one page of tasks. Use `nextToken` to fetch the following page.
+
+| Query parameter | Description |
+| --- | --- |
+| `limit` | Optional. Page size, an integer from 1 to 100. Defaults to 50. |
+| `nextToken` | Optional. The `nextToken` returned by the previous page. |
 
 ```bash
-curl $API_URL/tasks
+curl "$API_URL/tasks?limit=10"
+curl "$API_URL/tasks?limit=10&nextToken=<token from the previous response>"
 ```
+
+```json
+{
+  "items": [{ "id": "0b9f5c1e-6c2a-4f0e-9d0b-2f1f3f0a7a11", "title": "Write docs", "description": "Add a README", "createdAt": "2026-09-29T15:04:05.000Z", "done": false }],
+  "nextToken": "eyJpZCI6IjBiOWY1YzFlLTZjMmEtNGYwZS05ZDBiLTJmMWYzZjBhN2ExMSJ9"
+}
+```
+
+`nextToken` is `null` when there are no more pages. Keep requesting pages until it is `null`: a page can be empty while a token is still returned, for example when the last page ends exactly at `limit`. Tokens are opaque, so pass them back unchanged.
 
 | Status | Meaning |
 | --- | --- |
-| 200 | Array of tasks |
+| 200 | `{ items, nextToken }` |
+| 400 | `limit` is not an integer from 1 to 100, or `nextToken` is invalid |
 | 500 | `Could not retrieve tasks` |
 
 ### `GET /tasks/{id}`: get one task
@@ -238,7 +254,7 @@ This is a learning-oriented project and is not production-ready as is:
 
 - **No authentication.** The API is public; anyone with the URL can read and change data. Add an [authorizer](https://www.serverless.com/framework/docs/providers/aws/events/http-api) before real use.
 - **`POST /tasks` does not validate its input** and returns `200` instead of `201`. Invalid JSON will make the function fail.
-- **`GET /tasks` uses a table `Scan` without pagination**, so it only returns the first page (up to 1 MB) of results.
+- **`GET /tasks` uses a table `Scan`**, which reads the table page by page, so cost and latency grow with the table size. Listing by owner or status would need a global secondary index and a `Query`.
 - **The IAM policy grants `dynamodb:*`** on the table; narrowing it to the actions actually used (`PutItem`, `GetItem`, `Scan`, `UpdateItem`, `DeleteItem`) is recommended.
 - **No automated tests or linting** are configured yet.
 - **No license file.** Add one before accepting outside contributions or redistributing.
