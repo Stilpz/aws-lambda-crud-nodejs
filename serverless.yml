@@ -20,7 +20,7 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
-            - "arn:aws:dynamodb:us-west-2:550670296805:table/TaskTable"
+            - !GetAtt TaskTable.Arn
 
 functions:
   hello:
