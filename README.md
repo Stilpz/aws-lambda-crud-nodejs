@@ -15,6 +15,7 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 - [Local Development](#local-development)
 - [Deployment and Cleanup](#deployment-and-cleanup)
 - [Known Limitations](#known-limitations)
+- [Branching and Release Workflow](#branching-and-release-workflow)
 - [Contributing](#contributing)
 
 ## Overview
@@ -221,7 +222,7 @@ To add an endpoint:
 
 ```bash
 serverless deploy                      # deploy everything to the default stage (dev)
-serverless deploy --stage prod         # deploy to another stage
+serverless deploy --stage staging      # deploy to another stage (staging, prod)
 serverless deploy function -f getTask  # quickly redeploy one function's code
 serverless logs -f getTask --tail      # stream a function's logs
 serverless remove                      # delete the whole stack
@@ -229,7 +230,7 @@ serverless remove                      # delete the whole stack
 
 `serverless remove` also deletes `TaskTable` and every task in it.
 
-Note that the table is named `TaskTable` regardless of the stage, so two stages deployed to the same account and region would conflict. Deploy each stage to a separate account or region, or make the table name stage-dependent first.
+Each stage has its own table, named `TaskTable-<stage>`, so stages can share an AWS account and region without touching each other's data.
 
 ## Known Limitations
 
@@ -242,14 +243,38 @@ This is a learning-oriented project and is not production-ready as is:
 - **No automated tests or linting** are configured yet.
 - **No license file.** Add one before accepting outside contributions or redistributing.
 
+## Branching and Release Workflow
+
+Four long-lived branches carry a change from review to release:
+
+| Branch | Purpose | Stage | Deploy command |
+| --- | --- | --- | --- |
+| `development` | Integration. Every pull request targets this branch. | `dev` | `serverless deploy --stage dev` |
+| `staging` | Pre-release validation. | `staging` | `serverless deploy --stage staging` |
+| `production` | Released code. This is what runs in production. | `prod` | `serverless deploy --stage prod` |
+| `main` | Archive of released code. Never committed to directly. | none | not deployed |
+
+```
+feature branch ──PR──▶ development ──PR──▶ staging ──PR──▶ production ──PR──▶ main
+                          (dev)            (staging)         (prod)         (archive)
+```
+
+- Work branches start from `development`. Names are lowercase, use hyphens between words, have 3 to 5 words, contain no spaces, accents or special characters, and do not end with a hyphen, for example `add-task-pagination`.
+- Promote a change by opening a pull request from one branch to the next one. Use a merge commit rather than squash, so the branches keep the same history and do not diverge.
+- After a release is live in `production`, open a pull request from `production` to `main`. `main` only receives code that has already been released, so it stays unaltered.
+- For an urgent fix, branch from `production`, open a pull request back to `production`, and then merge the fix into `staging` and `development` so it is not lost in the next promotion.
+- CI (lint and tests) runs on pushes and pull requests for all four branches. Deployments are manual.
+
+Recommended repository settings: make `development` the default branch so new pull requests target it, and protect all four branches by requiring a pull request, passing CI and disallowing force pushes and deletion.
+
 ## Contributing
 
 Contributions are welcome.
 
-1. Fork the repository and create a branch from `main`: `git checkout -b feature/my-change`.
+1. Fork the repository and create a branch from `development`, following the naming rules above: `git checkout -b add-my-change`.
 2. Make your change, keeping the style of the surrounding code.
 3. Deploy to your own AWS account and verify the affected endpoints manually.
 4. Keep commits small and focused, with a descriptive title and a message explaining what changed and why.
-5. Open a pull request describing the change and how you tested it.
+5. Open a pull request against `development` describing the change and how you tested it.
 
 Never commit AWS credentials, access keys or `.env` files. `node_modules` and `.serverless` are already git-ignored.
