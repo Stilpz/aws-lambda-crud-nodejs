@@ -7,7 +7,7 @@ const deleteTask = async (event) => {
 
     try {
         await dynamoDb.delete({
-            TableName: "TaskTable",
+            TableName: process.env.TABLE_NAME,
             Key: { id },
             ConditionExpression: "attribute_exists(id)",
         }).promise();
