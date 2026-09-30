@@ -1,50 +1,23 @@
-const AWS = require('aws-sdk');
+import { withJsonBody } from "./middleware.js";
+import { updateTaskSchema } from "./schemas.js";
+import { dynamoDb } from "./db.js";
 
-const FIELD_VALIDATORS = {
-    done: (value) => typeof value === 'boolean',
-    title: (value) => typeof value === 'string' && value.trim().length > 0,
-    description: (value) => typeof value === 'string',
-};
+const UPDATABLE_FIELDS = ['done', 'title', 'description'];
 
-const updateTask = async (event) => {
+const updateTaskHandler = async (event) => {
     const { id } = event.pathParameters;
 
-    let body;
-    try {
-        body = JSON.parse(event.body);
-    } catch (error) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: 'Request body must be valid JSON' }),
-        };
-    }
+    const body = event.body;
 
-    const fields = Object.keys(FIELD_VALIDATORS).filter((key) => body[key] !== undefined);
-
-    if (fields.length === 0) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: 'No updatable fields provided (expected done, title and/or description)' }),
-        };
-    }
-
-    const invalidField = fields.find((key) => !FIELD_VALIDATORS[key](body[key]));
-    if (invalidField) {
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: `Invalid value for field "${invalidField}"` }),
-        };
-    }
+    const fields = UPDATABLE_FIELDS.filter((key) => body[key] !== undefined);
 
     const updateExpression = 'set ' + fields.map((key) => `#${key} = :${key}`).join(', ');
     const expressionAttributeNames = Object.fromEntries(fields.map((key) => [`#${key}`, key]));
     const expressionAttributeValues = Object.fromEntries(fields.map((key) => [`:${key}`, body[key]]));
 
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
     try {
         await dynamoDb.update({
-            TableName: 'TaskTable',
+            TableName: process.env.TABLE_NAME,
             Key: { id },
             UpdateExpression: updateExpression,
             ExpressionAttributeNames: expressionAttributeNames,
@@ -73,6 +46,4 @@ const updateTask = async (event) => {
     }
 };
 
-module.exports = {
-    updateTask,
-};
+export const updateTask = withJsonBody(updateTaskHandler, updateTaskSchema);

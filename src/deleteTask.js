@@ -1,13 +1,11 @@
-const AWS = require("aws-sdk");
+import { dynamoDb } from "./db.js";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
 
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
     try {
         await dynamoDb.delete({
-            TableName: "TaskTable",
+            TableName: process.env.TABLE_NAME,
             Key: { id },
             ConditionExpression: "attribute_exists(id)",
         }).promise();
@@ -33,4 +31,4 @@ const deleteTask = async (event) => {
     }
 }
 
-module.exports = { deleteTask };
+export { deleteTask };
