@@ -1,4 +1,4 @@
-const AWS = require("aws-sdk");
+import AWS from "aws-sdk";
 
 const getTasks = async (event) => {
     try {
@@ -24,6 +24,6 @@ const getTasks = async (event) => {
     }
 }
 
-module.exports = {
+export {
     getTasks,
 }

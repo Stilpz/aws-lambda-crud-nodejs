@@ -1,4 +1,4 @@
-const AWS = require("aws-sdk");
+import AWS from "aws-sdk";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
@@ -33,4 +33,4 @@ const deleteTask = async (event) => {
     }
 }
 
-module.exports = { deleteTask };
+export { deleteTask };

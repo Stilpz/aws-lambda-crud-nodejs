@@ -1,4 +1,4 @@
-const AWS = require('aws-sdk');
+import AWS from "aws-sdk";
 
 const FIELD_VALIDATORS = {
     done: (value) => typeof value === 'boolean',
@@ -73,6 +73,6 @@ const updateTask = async (event) => {
     }
 };
 
-module.exports = {
+export {
     updateTask,
 };
