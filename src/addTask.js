@@ -2,11 +2,12 @@ import { randomUUID } from "crypto";
 import AWS from "aws-sdk";
 
 import { withJsonBody } from "./middleware.js";
+import { createTaskSchema } from "./schemas.js";
 
 const addTaskHandler = async (event) => {
     const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-    const { title, description } = event.body;
+    const { title, description = "" } = event.body;
     const createdAt = new Date().toISOString();
     const id = randomUUID();
 
@@ -30,4 +31,4 @@ const addTaskHandler = async (event) => {
 
 };
 
-export const addTask = withJsonBody(addTaskHandler);
+export const addTask = withJsonBody(addTaskHandler, createTaskSchema);
