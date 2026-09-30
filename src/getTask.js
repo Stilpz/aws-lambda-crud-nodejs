@@ -1,7 +1,6 @@
-import AWS from "aws-sdk";
+import { dynamoDb } from "./db.js";
 
 const getTask = async (event) => {
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
     const { id } = event.pathParameters;
 
     try {
