@@ -19,16 +19,24 @@ const addTaskHandler = async (event) => {
         done: false,
     };
 
-    await dynamoDb.put({
-        TableName: "TaskTable",
-        Item: newTask,
-    }).promise();
+    try {
+        await dynamoDb.put({
+            TableName: "TaskTable",
+            Item: newTask,
+        }).promise();
 
-    return {
-        statusCode: 201,
-        body: JSON.stringify(newTask),
-    };
+        return {
+            statusCode: 201,
+            body: JSON.stringify(newTask),
+        };
+    } catch (error) {
+        console.error("Error creating task:", error);
 
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Could not create task" }),
+        };
+    }
 };
 
 export const addTask = withJsonBody(addTaskHandler, createTaskSchema);
