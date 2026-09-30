@@ -1,10 +1,12 @@
-const { randomUUID } = require("crypto");
-const AWS = require("aws-sdk");
+import { randomUUID } from "crypto";
+import AWS from "aws-sdk";
 
-const addTask = async (event) => {
+import { withJsonBody } from "./middleware.js";
+
+const addTaskHandler = async (event) => {
     const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-    const { title, description } = JSON.parse(event.body);
+    const { title, description } = event.body;
     const createdAt = new Date().toISOString();
     const id = randomUUID();
 
@@ -28,6 +30,4 @@ const addTask = async (event) => {
 
 };
 
-module.exports = {
-  addTask,
-};
+export const addTask = withJsonBody(addTaskHandler);
