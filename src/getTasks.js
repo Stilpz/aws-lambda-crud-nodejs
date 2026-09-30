@@ -1,9 +1,7 @@
-import AWS from "aws-sdk";
+import { dynamoDb } from "./db.js";
 
 const getTasks = async (event) => {
     try {
-        const dynamoDb = new AWS.DynamoDB.DocumentClient();
-
         const result= await dynamoDb.scan({
             TableName: process.env.TABLE_NAME
         }).promise();
