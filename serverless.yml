@@ -9,6 +9,19 @@ provider:
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
+  httpApi:
+    authorizers:
+      cognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: !Join
+          - ""
+          - - "https://cognito-idp."
+            - !Ref AWS::Region
+            - ".amazonaws.com/"
+            - !Ref UserPool
+        audience:
+          - !Ref UserPoolClient
   environment:
     TABLE_NAME: !Ref TaskTable
   iam:
