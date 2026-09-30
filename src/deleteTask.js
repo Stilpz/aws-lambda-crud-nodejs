@@ -1,9 +1,7 @@
-import AWS from "aws-sdk";
+import { dynamoDb } from "./db.js";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
-
-    const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
     try {
         await dynamoDb.delete({
