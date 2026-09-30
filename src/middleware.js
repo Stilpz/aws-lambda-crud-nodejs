@@ -5,14 +5,22 @@ import validator from "@middy/validator";
 import { transpileSchema } from "@middy/validator/transpile";
 
 // http-error-handler answers with a plain-text message; wrap it so error
-// responses keep the { "message": "..." } shape used by every handler.
+// responses keep the { "message": "..." } shape used by every handler, and
+// list which fields failed when the validator rejected the request.
 const jsonErrorMessage = () => ({
     onError: (request) => {
         const { error } = request;
 
-        if (error?.statusCode && error.statusCode < 500 && typeof error.message === "string") {
-            error.message = JSON.stringify({ message: error.message });
+        if (!error?.statusCode || error.statusCode >= 500 || typeof error.message !== "string") {
+            return;
         }
+
+        const validationErrors = error.cause?.data;
+        const details = Array.isArray(validationErrors)
+            ? { errors: validationErrors.map(({ instancePath, message }) => `${instancePath} ${message}`) }
+            : {};
+
+        error.message = JSON.stringify({ message: error.message, ...details });
     },
 });
 
