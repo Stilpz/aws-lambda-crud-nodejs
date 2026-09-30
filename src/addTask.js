@@ -25,7 +25,7 @@ const addTaskHandler = async (event) => {
     }).promise();
 
     return {
-        statusCode: 200,
+        statusCode: 201,
         body: JSON.stringify(newTask),
     };
 
