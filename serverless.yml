@@ -50,30 +50,40 @@ functions:
       - httpApi:
           path: /tasks
           method: post
+          authorizer:
+            name: cognitoAuthorizer
   getTasks:
     handler: src/getTasks.getTasks
     events:
       - httpApi:
           path: /tasks
           method: get
+          authorizer:
+            name: cognitoAuthorizer
   getTask:
     handler: src/getTask.getTask
     events:
       - httpApi:
           path: /tasks/{id}
           method: get
+          authorizer:
+            name: cognitoAuthorizer
   updateTask:
     handler: src/updateTask.updateTask
     events:
       - httpApi:
           path: /tasks/{id}
           method: put
+          authorizer:
+            name: cognitoAuthorizer
   deleteTask:
     handler: src/deleteTask.deleteTask
     events:
       - httpApi:
           path: /tasks/{id}
           method: delete
+          authorizer:
+            name: cognitoAuthorizer
 
 resources:
   Resources:
