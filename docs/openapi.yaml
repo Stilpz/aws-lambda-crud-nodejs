@@ -359,12 +359,16 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Message"
+          example:
+            message: Unsupported Media Type
     MalformedJson:
       description: The body is not valid JSON
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Message"
+          example:
+            message: Invalid or malformed JSON was provided
     ServerError:
       description: Unexpected failure
       content:
