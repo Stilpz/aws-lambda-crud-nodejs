@@ -9,6 +9,19 @@ provider:
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
+  httpApi:
+    authorizers:
+      cognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: !Join
+          - ""
+          - - "https://cognito-idp."
+            - !Ref AWS::Region
+            - ".amazonaws.com/"
+            - !Ref UserPool
+        audience:
+          - !Ref UserPoolClient
   environment:
     TABLE_NAME: !Ref TaskTable
   iam:
@@ -18,11 +31,12 @@ provider:
           Action:
             - dynamodb:PutItem
             - dynamodb:GetItem
-            - dynamodb:Scan
+            - dynamodb:Query
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
             - !GetAtt TaskTable.Arn
+            - !Sub "${TaskTable.Arn}/index/*"
 
 functions:
   hello:
@@ -37,30 +51,40 @@ functions:
       - httpApi:
           path: /tasks
           method: post
+          authorizer:
+            name: cognitoAuthorizer
   getTasks:
     handler: src/getTasks.getTasks
     events:
       - httpApi:
           path: /tasks
           method: get
+          authorizer:
+            name: cognitoAuthorizer
   getTask:
     handler: src/getTask.getTask
     events:
       - httpApi:
           path: /tasks/{id}
           method: get
+          authorizer:
+            name: cognitoAuthorizer
   updateTask:
     handler: src/updateTask.updateTask
     events:
       - httpApi:
           path: /tasks/{id}
           method: put
+          authorizer:
+            name: cognitoAuthorizer
   deleteTask:
     handler: src/deleteTask.deleteTask
     events:
       - httpApi:
           path: /tasks/{id}
           method: delete
+          authorizer:
+            name: cognitoAuthorizer
 
 resources:
   Resources:
@@ -72,6 +96,49 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
+          - AttributeName: ownerId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
         KeySchema:
           - AttributeName: id
             KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: ownerId-createdAt-index
+            KeySchema:
+              - AttributeName: ownerId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+    UserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: tasks-${sls:stage}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireUppercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+    UserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: tasks-api-${sls:stage}
+        UserPoolId: !Ref UserPool
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+  Outputs:
+    UserPoolId:
+      Value: !Ref UserPool
+    UserPoolClientId:
+      Value: !Ref UserPoolClient

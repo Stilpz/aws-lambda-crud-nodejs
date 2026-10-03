@@ -1,6 +1,8 @@
 import { withJsonBody } from "./middleware.js";
 import { updateTaskSchema } from "./schemas.js";
+import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDb } from "./db.js";
+import { getOwnerId } from "./auth.js";
 
 const UPDATABLE_FIELDS = ['done', 'title', 'description'];
 
@@ -13,25 +15,28 @@ const updateTaskHandler = async (event) => {
 
     const updateExpression = 'set ' + fields.map((key) => `#${key} = :${key}`).join(', ');
     const expressionAttributeNames = Object.fromEntries(fields.map((key) => [`#${key}`, key]));
-    const expressionAttributeValues = Object.fromEntries(fields.map((key) => [`:${key}`, body[key]]));
+    const expressionAttributeValues = {
+        ...Object.fromEntries(fields.map((key) => [`:${key}`, body[key]])),
+        ':ownerId': getOwnerId(event),
+    };
 
     try {
-        await dynamoDb.update({
+        await dynamoDb.send(new UpdateCommand({
             TableName: process.env.TABLE_NAME,
             Key: { id },
             UpdateExpression: updateExpression,
             ExpressionAttributeNames: expressionAttributeNames,
             ExpressionAttributeValues: expressionAttributeValues,
-            ConditionExpression: 'attribute_exists(id)',
+            ConditionExpression: 'attribute_exists(id) AND ownerId = :ownerId',
             ReturnValues: 'ALL_NEW',
-        }).promise();
+        }));
 
         return {
             statusCode: 200,
             body: JSON.stringify({ message: 'Task updated successfully' }),
         };
     } catch (error) {
-        if (error.code === 'ConditionalCheckFailedException') {
+        if (error.name === 'ConditionalCheckFailedException') {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ message: 'Task not found' }),
