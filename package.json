@@ -1,5 +1,11 @@
 {
+  "name": "aws-lambda-crud-nodejs",
+  "private": true,
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1146.0",
     "@aws-sdk/lib-dynamodb": "^3.1146.0",
