@@ -1,4 +1,5 @@
 import { dynamoDb } from "./db.js";
+import { getOwnerId } from "./auth.js";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
@@ -7,7 +8,8 @@ const deleteTask = async (event) => {
         await dynamoDb.delete({
             TableName: process.env.TABLE_NAME,
             Key: { id },
-            ConditionExpression: "attribute_exists(id)",
+            ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
+            ExpressionAttributeValues: { ":ownerId": getOwnerId(event) },
         }).promise();
 
         return {
