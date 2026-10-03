@@ -9,6 +9,7 @@ const getTask = async (event) => {
         const result = await dynamoDb.send(new GetCommand({
             TableName: process.env.TABLE_NAME,
             Key: { id },
+            ConsistentRead: true,
         }));
 
         // A task owned by someone else is reported as missing so its existence is not revealed.
