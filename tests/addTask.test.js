@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addTask } from "../src/addTask.js";
-import { jsonEvent, mockDynamo, silenceErrorLogs } from "./helpers.js";
+import { authContext, jsonEvent, OWNER_ID, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const invoke = (event) => addTask(event, {});
 
@@ -15,6 +15,7 @@ describe("addTask", () => {
             title: "Write tests",
             description: "With Vitest",
             done: false,
+            ownerId: OWNER_ID,
         });
         expect(put).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -60,7 +61,7 @@ describe("addTask", () => {
         const put = mockDynamo("put");
         silenceErrorLogs();
 
-        const response = await invoke({ headers: { "content-type": "text/plain" }, body: "x" });
+        const response = await invoke({ requestContext: authContext(), headers: { "content-type": "text/plain" }, body: "x" });
 
         expect(response.statusCode).toBe(415);
         expect(put).not.toHaveBeenCalled();
@@ -69,7 +70,7 @@ describe("addTask", () => {
     it("rejects malformed JSON with 422", async () => {
         silenceErrorLogs();
 
-        const response = await invoke({ headers: { "content-type": "application/json" }, body: "{bad" });
+        const response = await invoke({ requestContext: authContext(), headers: { "content-type": "application/json" }, body: "{bad" });
 
         expect(response.statusCode).toBe(422);
         expect(JSON.parse(response.body).message).toBeTypeOf("string");
