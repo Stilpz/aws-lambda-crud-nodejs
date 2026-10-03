@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: Tasks API
+  version: 1.0.0
+  description: |
+    Serverless REST API for managing personal tasks (AWS Lambda, API Gateway HTTP API,
+    DynamoDB, Amazon Cognito).
+
+    **Authentication.** Every operation except `GET /` needs a Cognito JWT in the
+    `Authorization: Bearer <token>` header. API Gateway answers `401` before any function runs
+    when the token is missing, invalid or expired.
+
+    **Ownership.** Each task belongs to the user whose JWT `sub` claim created it. A user can only
+    read, change or delete their own tasks. Asking for another user's task returns `404`,
+    exactly like a task that does not exist.
+
+    **Consistency.** `GET /tasks` reads a global secondary index, which is eventually consistent:
+    a task created a moment ago may not appear in the list yet. `GET /tasks/{id}` is strongly
+    consistent.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com
+    description: Deployed HTTP API (the base URL is printed by `serverless deploy`)
+    variables:
+      apiId:
+        default: xxxxxxxxxx
+      region:
+        default: us-west-2
+tags:
+  - name: Health
+    description: Public deployment check.
+  - name: Tasks
+    description: Task operations, scoped to the authenticated user.
+paths:
+  /:
+    get:
+      tags: [Health]
+      operationId: hello
+      summary: Health-check style greeting
+      description: Public. Useful to verify a deployment.
+      security: []
+      responses:
+        "200":
+          description: Greeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Hello, World!
+  /tasks:
+    post:
+      tags: [Tasks]
+      operationId: createTask
+      summary: Create a task
+      description: |
+        The server generates `id` (UUID v4) and `createdAt`, sets `ownerId` to the authenticated
+        user and sets `done` to `false`. The request must use `Content-Type: application/json`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTask"
+            example:
+              title: Write docs
+              description: Add a README
+      responses:
+        "201":
+          description: The created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/MalformedJson"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    get:
+      tags: [Tasks]
+      operationId: listTasks
+      summary: List the caller's tasks
+      description: |
+        Returns one page of the authenticated user's tasks, oldest first. Keep requesting pages,
+        passing back the previous `nextToken`, until `nextToken` is `null`. A page can be empty
+        while a token is still returned. Tokens are opaque and only work for the user they were
+        issued to. Eventually consistent (see the API description).
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Page size, an integer from 1 to 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: nextToken
+          in: query
+          required: false
+          description: The `nextToken` returned by the previous page.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskPage"
+        "400":
+          description: "`limit` is not an integer from 1 to 100, or `nextToken` is invalid"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: limit must be an integer between 1 and 100
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Could not retrieve tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Could not retrieve tasks
+  /tasks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      tags: [Tasks]
+      operationId: getTask
+      summary: Get one task
+      responses:
+        "200":
+          description: The task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          description: Could not retrieve task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Could not retrieve task
+    put:
+      tags: [Tasks]
+      operationId: updateTask
+      summary: Partially update a task
+      description: |
+        Partial update despite the `PUT` verb: only the fields sent are changed, and at least one
+        of `done`, `title` or `description` is required. Other fields (such as `id`, `ownerId`
+        or `createdAt`) are ignored. The request must use `Content-Type: application/json`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTask"
+            example:
+              done: true
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Task updated successfully
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/MalformedJson"
+        "500":
+          description: Could not update task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Could not update task
+    delete:
+      tags: [Tasks]
+      operationId: deleteTask
+      summary: Delete a task
+      responses:
+        "200":
+          description: Task deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Task deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          description: Could not delete task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Could not delete task
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        A JWT issued by the Cognito user pool of the deployment (the ID token works). Tokens
+        expire after one hour by default.
+  parameters:
+    TaskId:
+      name: id
+      in: path
+      required: true
+      description: Task id (UUID v4).
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    ValidationError:
+      type: object
+      required: [message, errors]
+      properties:
+        message:
+          type: string
+        errors:
+          type: array
+          description: One entry per failing field, as `<json pointer> <reason>`.
+          items:
+            type: string
+    CreateTask:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          pattern: \S
+          description: Non-empty string.
+        description:
+          type: string
+          default: ""
+    UpdateTask:
+      type: object
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          pattern: \S
+        description:
+          type: string
+        done:
+          type: boolean
+    Task:
+      type: object
+      required: [id, ownerId, title, description, createdAt, done]
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerId:
+          type: string
+          description: The `sub` claim of the owner's JWT. Set on creation, never changes.
+        title:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        done:
+          type: boolean
+      example:
+        id: 0b9f5c1e-6c2a-4f0e-9d0b-2f1f3f0a7a11
+        ownerId: b1c2d3e4-5f60-4a7b-8c9d-0e1f2a3b4c5d
+        title: Write docs
+        description: Add a README
+        createdAt: "2026-09-29T15:04:05.000Z"
+        done: false
+    TaskPage:
+      type: object
+      required: [items, nextToken]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        nextToken:
+          type: string
+          nullable: true
+          description: Opaque cursor for the next page, or `null` when there are no more pages.
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired token (answered by API Gateway)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+          example:
+            message: Unauthorized
+    NotFound:
+      description: The task does not exist or belongs to another user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+          example:
+            message: Task not found
+    ValidationError:
+      description: The body failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+          example:
+            message: Event object failed validation
+            errors:
+              - "/body must have required property 'title'"
+    UnsupportedMediaType:
+      description: "`Content-Type` is not `application/json`"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    MalformedJson:
+      description: The body is not valid JSON
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+    ServerError:
+      description: Unexpected failure
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Message"
+          example:
+            message: Could not create task
