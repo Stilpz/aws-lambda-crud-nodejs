@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { updateTask } from "../src/updateTask.js";
-import { conditionalCheckFailed, jsonEvent, mockDynamo, silenceErrorLogs } from "./helpers.js";
+import { authContext, conditionalCheckFailed, jsonEvent, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const invoke = (body, id = "task-1") => updateTask(jsonEvent(body, { id }), {});
 
@@ -17,8 +17,8 @@ describe("updateTask", () => {
                 Key: { id: "task-1" },
                 UpdateExpression: "set #done = :done",
                 ExpressionAttributeNames: { "#done": "done" },
-                ExpressionAttributeValues: { ":done": true },
-                ConditionExpression: "attribute_exists(id)",
+                ExpressionAttributeValues: { ":done": true, ":ownerId": "user-1" },
+                ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
             }),
         );
     });
@@ -30,7 +30,7 @@ describe("updateTask", () => {
 
         const params = update.mock.calls[0][0];
         expect(params.UpdateExpression).toBe("set #done = :done, #title = :title");
-        expect(params.ExpressionAttributeValues).toEqual({ ":done": false, ":title": "New" });
+        expect(params.ExpressionAttributeValues).toEqual({ ":done": false, ":title": "New", ":ownerId": "user-1" });
     });
 
     it("accepts an empty description", async () => {
@@ -58,14 +58,14 @@ describe("updateTask", () => {
 
     it("rejects a non-JSON content type with 415", async () => {
         silenceErrorLogs();
-        const event = { headers: { "content-type": "text/plain" }, body: "x", pathParameters: { id: "1" } };
+        const event = { requestContext: authContext(), headers: { "content-type": "text/plain" }, body: "x", pathParameters: { id: "1" } };
 
         expect((await updateTask(event, {})).statusCode).toBe(415);
     });
 
     it("rejects malformed JSON with 422", async () => {
         silenceErrorLogs();
-        const event = { headers: { "content-type": "application/json" }, body: "{bad", pathParameters: { id: "1" } };
+        const event = { requestContext: authContext(), headers: { "content-type": "application/json" }, body: "{bad", pathParameters: { id: "1" } };
 
         expect((await updateTask(event, {})).statusCode).toBe(422);
     });

@@ -2,7 +2,9 @@ import { randomUUID } from "crypto";
 
 import { withJsonBody } from "./middleware.js";
 import { createTaskSchema } from "./schemas.js";
+import { PutCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDb } from "./db.js";
+import { getOwnerId } from "./auth.js";
 
 const addTaskHandler = async (event) => {
     const { title, description = "" } = event.body;
@@ -11,6 +13,7 @@ const addTaskHandler = async (event) => {
 
     const newTask =  {
         id,
+        ownerId: getOwnerId(event),
         title,
         description,
         createdAt,
@@ -18,11 +21,11 @@ const addTaskHandler = async (event) => {
     };
 
     try {
-        await dynamoDb.put({
+        await dynamoDb.send(new PutCommand({
             TableName: process.env.TABLE_NAME,
             Item: newTask,
             ConditionExpression: "attribute_not_exists(id)",
-        }).promise();
+        }));
 
         return {
             statusCode: 201,

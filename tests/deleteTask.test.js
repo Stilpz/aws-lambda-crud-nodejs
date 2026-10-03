@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { deleteTask } from "../src/deleteTask.js";
-import { conditionalCheckFailed, mockDynamo, silenceErrorLogs } from "./helpers.js";
+import { authContext, conditionalCheckFailed, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
-const invoke = (id = "task-1") => deleteTask({ pathParameters: { id } });
+const invoke = (id = "task-1") => deleteTask({ requestContext: authContext(), pathParameters: { id } });
 
 describe("deleteTask", () => {
     it("deletes an existing task with 200", async () => {
@@ -14,7 +14,8 @@ describe("deleteTask", () => {
         expect(del).toHaveBeenCalledWith({
             TableName: "TaskTable-test",
             Key: { id: "task-1" },
-            ConditionExpression: "attribute_exists(id)",
+            ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
+            ExpressionAttributeValues: { ":ownerId": "user-1" },
         });
     });
 
