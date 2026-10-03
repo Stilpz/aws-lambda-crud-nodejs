@@ -25,30 +25,36 @@ const decodeKey = (token) => {
     }
 };
 
-// The token comes from the client, so only a plain string id is accepted as the
-// DynamoDB start key instead of passing along whatever the token decodes to.
-const parseExclusiveStartKey = (token) => {
+const isNonEmptyString = (value) => typeof value === "string" && value !== "";
+
+// The token comes from the client, so only plain strings are accepted for the key
+// attributes, and the owner always comes from the caller's identity (never the token)
+// so a forged token cannot page through another user's tasks.
+const parseExclusiveStartKey = (token, ownerId) => {
     if (token === undefined) {
         return undefined;
     }
 
     const key = decodeKey(token);
 
-    if (typeof key?.id !== "string" || key.id === "") {
+    if (!isNonEmptyString(key?.id) || !isNonEmptyString(key?.createdAt)) {
         throw new InvalidPaginationError("nextToken is invalid");
     }
 
-    return { id: key.id };
+    return { id: key.id, createdAt: key.createdAt, ownerId };
 };
 
-export const parsePagination = (queryStringParameters) => {
+export const parsePagination = (queryStringParameters, ownerId) => {
     const { limit, nextToken } = queryStringParameters ?? {};
 
     return {
         limit: parseLimit(limit),
-        exclusiveStartKey: parseExclusiveStartKey(nextToken),
+        exclusiveStartKey: parseExclusiveStartKey(nextToken, ownerId),
     };
 };
 
+// ownerId is left out: it is re-derived from the caller's identity when the token is read.
 export const encodeNextToken = (lastEvaluatedKey) =>
-    lastEvaluatedKey ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString("base64url") : null;
+    lastEvaluatedKey
+        ? Buffer.from(JSON.stringify({ id: lastEvaluatedKey.id, createdAt: lastEvaluatedKey.createdAt })).toString("base64url")
+        : null;

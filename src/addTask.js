@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { withJsonBody } from "./middleware.js";
 import { createTaskSchema } from "./schemas.js";
 import { dynamoDb } from "./db.js";
+import { getOwnerId } from "./auth.js";
 
 const addTaskHandler = async (event) => {
     const { title, description = "" } = event.body;
@@ -11,6 +12,7 @@ const addTaskHandler = async (event) => {
 
     const newTask =  {
         id,
+        ownerId: getOwnerId(event),
         title,
         description,
         createdAt,

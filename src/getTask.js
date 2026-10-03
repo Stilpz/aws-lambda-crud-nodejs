@@ -1,4 +1,5 @@
 import { dynamoDb } from "./db.js";
+import { getOwnerId } from "./auth.js";
 
 const getTask = async (event) => {
     const { id } = event.pathParameters;
@@ -9,7 +10,8 @@ const getTask = async (event) => {
             Key: { id },
         }).promise();
 
-        if (!result.Item) {
+        // A task owned by someone else is reported as missing so its existence is not revealed.
+        if (!result.Item || result.Item.ownerId !== getOwnerId(event)) {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ message: "Task not found" }),

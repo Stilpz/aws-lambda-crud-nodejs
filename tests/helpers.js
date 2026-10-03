@@ -1,7 +1,15 @@
 import { vi } from "vitest";
 import { dynamoDb } from "../src/db.js";
 
-export const jsonEvent = (body, pathParameters) => ({
+export const OWNER_ID = "user-1";
+
+// Request context API Gateway builds after the Cognito JWT authorizer accepts a token.
+export const authContext = (sub = OWNER_ID) => ({
+    authorizer: { jwt: { claims: { sub } } },
+});
+
+export const jsonEvent = (body, pathParameters, sub) => ({
+    requestContext: authContext(sub),
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
     pathParameters,
