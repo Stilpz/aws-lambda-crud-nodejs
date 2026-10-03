@@ -47,7 +47,7 @@ The DynamoDB table and the IAM permissions the functions need are declared in `s
 └── src/
     ├── hello.js        # GET    /             health-check style greeting
     ├── addTask.js      # POST   /tasks        create a task
-    ├── getTasks.js     # GET    /tasks        list all tasks
+    ├── getTasks.js     # GET    /tasks        list the caller's tasks
     ├── getTask.js      # GET    /tasks/{id}   fetch one task
     ├── updateTask.js   # PUT    /tasks/{id}   partially update a task
     └── deleteTask.js   # DELETE /tasks/{id}   delete a task
@@ -254,8 +254,7 @@ This is a learning-oriented project and is not production-ready as is:
 
 - **No authentication.** The API is public; anyone with the URL can read and change data. Add an [authorizer](https://www.serverless.com/framework/docs/providers/aws/events/http-api) before real use.
 - **`POST /tasks` does not validate its input** and returns `200` instead of `201`. Invalid JSON will make the function fail.
-- **`GET /tasks` uses a table `Scan`**, which reads the table page by page, so cost and latency grow with the table size. Listing by owner or status would need a global secondary index and a `Query`.
-- **The IAM policy grants `dynamodb:*`** on the table; narrowing it to the actions actually used (`PutItem`, `GetItem`, `Scan`, `UpdateItem`, `DeleteItem`) is recommended.
+- **The IAM policy grants `dynamodb:*`** on the table; narrowing it to the actions actually used (`PutItem`, `GetItem`, `Query`, `UpdateItem`, `DeleteItem`) is recommended.
 - **No automated tests or linting** are configured yet.
 - **No license file.** Add one before accepting outside contributions or redistributing.
 

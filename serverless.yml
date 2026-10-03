@@ -31,11 +31,12 @@ provider:
           Action:
             - dynamodb:PutItem
             - dynamodb:GetItem
-            - dynamodb:Scan
+            - dynamodb:Query
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
             - !GetAtt TaskTable.Arn
+            - !Sub "${TaskTable.Arn}/index/*"
 
 functions:
   hello:
@@ -95,9 +96,22 @@ resources:
         AttributeDefinitions:
           - AttributeName: id
             AttributeType: S
+          - AttributeName: ownerId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
         KeySchema:
           - AttributeName: id
             KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: ownerId-createdAt-index
+            KeySchema:
+              - AttributeName: ownerId
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
     UserPool:
       Type: AWS::Cognito::UserPool
       Properties:
