@@ -34,7 +34,7 @@ Client ──HTTP──▶ API Gateway (HTTP API) ──▶ Lambda function ─�
 | Region | `us-west-2` |
 | Framework | Serverless Framework v4 |
 | Database | DynamoDB, partition key `id` (string), on-demand billing |
-| SDK | AWS SDK for JavaScript v2 (`aws-sdk`), `DocumentClient` |
+| SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
 
 The DynamoDB table and the IAM permissions the functions need are declared in `serverless.yml`, so a single deploy creates everything.
 
@@ -43,7 +43,7 @@ The DynamoDB table and the IAM permissions the functions need are declared in `s
 ```
 .
 ├── serverless.yml      # Functions, HTTP routes, IAM role and DynamoDB table
-├── package.json        # Dependencies (aws-sdk)
+├── package.json        # Dependencies (AWS SDK v3 clients)
 └── src/
     ├── hello.js        # GET    /             health-check style greeting
     ├── addTask.js      # POST   /tasks        create a task
