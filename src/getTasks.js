@@ -1,3 +1,4 @@
+import { QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDb } from "./db.js";
 import { getOwnerId } from "./auth.js";
 import { encodeNextToken, InvalidPaginationError, parsePagination } from "./pagination.js";
@@ -7,14 +8,14 @@ const getTasks = async (event) => {
         const ownerId = getOwnerId(event);
         const { limit, exclusiveStartKey } = parsePagination(event.queryStringParameters, ownerId);
 
-        const result = await dynamoDb.query({
+        const result = await dynamoDb.send(new QueryCommand({
             TableName: process.env.TABLE_NAME,
             IndexName: "ownerId-createdAt-index",
             KeyConditionExpression: "ownerId = :ownerId",
             ExpressionAttributeValues: { ":ownerId": ownerId },
             Limit: limit,
             ExclusiveStartKey: exclusiveStartKey,
-        }).promise();
+        }));
 
         return {
             statusCode: 200,
