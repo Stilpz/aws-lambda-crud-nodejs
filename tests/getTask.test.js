@@ -13,7 +13,11 @@ describe("getTask", () => {
 
         expect(response.statusCode).toBe(200);
         expect(JSON.parse(response.body)).toEqual(task);
-        expect(get).toHaveBeenCalledWith({ TableName: "TaskTable-test", Key: { id: "task-1" } });
+        expect(get).toHaveBeenCalledWith({
+            TableName: "TaskTable-test",
+            Key: { id: "task-1" },
+            ConsistentRead: true,
+        });
     });
 
     it("returns 404 when the task does not exist", async () => {
