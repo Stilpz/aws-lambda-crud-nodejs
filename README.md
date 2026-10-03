@@ -12,11 +12,16 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 - [Configuration for Forks](#configuration-for-forks)
 - [Authentication](#authentication)
 - [API Reference](#api-reference)
+- [Consuming the API](#consuming-the-api)
+- [Error Model](#error-model)
+- [Consistency Notes](#consistency-notes)
 - [Data Model](#data-model)
 - [Local Development](#local-development)
 - [Testing and Linting](#testing-and-linting)
 - [Deployment and Cleanup](#deployment-and-cleanup)
 - [Known Limitations](#known-limitations)
+- [Security Notes](#security-notes)
+- [Troubleshooting](#troubleshooting)
 - [Branching and Release Workflow](#branching-and-release-workflow)
 - [Contributing](#contributing)
 - [License](#license)
@@ -26,6 +31,16 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 This project exposes a small CRUD API over a single DynamoDB table, `TaskTable-<stage>`. Each endpoint is an independent Lambda function, so functions can be changed, deployed and scaled separately. The table uses on-demand billing (`PAY_PER_REQUEST`), so an idle deployment costs practically nothing.
 
 Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Each task stores the id of the user who created it, and every endpoint only reads or changes that user's tasks.
+
+## Documentation
+
+| Document | What it is for |
+| --- | --- |
+| This README | Setup, authentication, API reference, consuming the API, troubleshooting |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable API contract (OpenAPI 3.0.3). Import it into Postman, Insomnia or a client generator |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
+| [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication and per-user isolation |
 
 ## Architecture
 
@@ -54,6 +69,13 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 ├── serverless.yml      # Functions, HTTP routes, authorizer, IAM role, DynamoDB table and Cognito resources
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
+├── CONTRIBUTING.md     # Contribution guide for forks
+├── docs/
+│   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)
+│   └── ARCHITECTURE.md # Design, findings and roadmap
+├── scripts/
+│   └── smoke.sh        # Post-deploy authentication and isolation check
+├── .github/            # CI workflow and pull request template
 ├── src/
 │   ├── hello.js        # GET    /             health-check style greeting (public)
 │   ├── addTask.js      # POST   /tasks        create a task
@@ -294,6 +316,129 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" $API_URL/tasks/0b9f5c1e-6c2a-4f
 | 404 | `Task not found`, or the task belongs to another user |
 | 500 | `Could not delete task` |
 
+## Consuming the API
+
+### The typical flow
+
+1. The user signs in with Cognito (with an SDK such as AWS Amplify or `amazon-cognito-identity-js`, or with the AWS CLI while testing) and gets an ID token, an access token and a refresh token.
+2. The client sends the ID token in `Authorization: Bearer <token>` with every request.
+3. When a request returns `401`, the token has most likely expired (one hour by default). The client exchanges the refresh token for a new one and retries once.
+4. If the refresh also fails, the user must sign in again.
+
+### Refreshing a token
+
+Keep the whole authentication result when you sign in, not only the ID token:
+
+```bash
+AUTH=$(aws cognito-idp initiate-auth --region $REGION --auth-flow USER_PASSWORD_AUTH \
+  --client-id "$CLIENT_ID" \
+  --auth-parameters "USERNAME=ana@example.com,PASSWORD=Example1234" \
+  --query AuthenticationResult --output json)
+```
+
+Later, trade the refresh token (valid for 30 days by default) for a fresh ID token:
+
+```bash
+REFRESH_TOKEN=$(echo "$AUTH" | node -e 'console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).RefreshToken)')
+
+TOKEN=$(aws cognito-idp initiate-auth --region $REGION --auth-flow REFRESH_TOKEN_AUTH \
+  --client-id "$CLIENT_ID" --auth-parameters "REFRESH_TOKEN=$REFRESH_TOKEN" \
+  --query AuthenticationResult.IdToken --output text)
+```
+
+### JavaScript client
+
+A small client for Node.js 22+ or a browser, with error handling and an async iterator that follows the pagination for you:
+
+```js
+const API_URL = process.env.API_URL; // for example https://xxxxxxxxxx.execute-api.us-west-2.amazonaws.com
+
+async function api(path, { token, ...init } = {}) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...init.headers,
+    },
+  });
+
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    // 401: expired or invalid token. 400: body.errors lists the failing fields.
+    throw Object.assign(new Error(body?.message ?? response.statusText), {
+      status: response.status,
+      body,
+    });
+  }
+
+  return body;
+}
+
+// Yields every task of the signed-in user, one page at a time.
+async function* listTasks(token, limit = 50) {
+  let nextToken = null;
+
+  do {
+    const query = new URLSearchParams({ limit: String(limit), ...(nextToken && { nextToken }) });
+    const page = await api(`/tasks?${query}`, { token });
+
+    yield* page.items;
+    nextToken = page.nextToken;
+  } while (nextToken);
+}
+
+const task = await api("/tasks", {
+  token,
+  method: "POST",
+  body: JSON.stringify({ title: "Write docs", description: "Add a README" }),
+});
+
+await api(`/tasks/${task.id}`, { token, method: "PUT", body: JSON.stringify({ done: true }) });
+
+for await (const item of listTasks(token)) {
+  console.log(item.title, item.done);
+}
+
+await api(`/tasks/${task.id}`, { token, method: "DELETE" });
+```
+
+### Client rules of thumb
+
+- Send `Content-Type: application/json` on `POST` and `PUT`; otherwise the API answers `415`.
+- Treat `nextToken` as an opaque string: store it, send it back unchanged, and stop only when it is `null`.
+- Do not parse tokens or task ids; do not assume ids are sortable.
+- Do not retry `4xx` responses other than a single retry after refreshing a `401`. `5xx` responses are safe to retry for `GET` and `DELETE`; a retried `POST` can create a duplicate task because the API has no idempotency key.
+- The contract in [`docs/openapi.yaml`](docs/openapi.yaml) can generate typed clients, for example with `npx @openapitools/openapi-generator-cli`.
+
+## Error Model
+
+Errors from the functions have the shape `{ "message": "..." }`. Validation errors (`400` on `POST` and `PUT`) add the failing fields:
+
+```json
+{
+  "message": "Event object failed validation",
+  "errors": ["/body must have required property 'title'"]
+}
+```
+
+| Status | Raised by | Typical cause |
+| --- | --- | --- |
+| 400 | Function | Failed body validation, or an invalid `limit` or `nextToken` |
+| 401 | API Gateway | Missing, invalid or expired token. The function never runs |
+| 404 | Function | The task does not exist, or belongs to another user |
+| 415 | Function | `Content-Type` is not `application/json` |
+| 422 | Function | The body is not valid JSON |
+| 500 | Function | An unexpected failure, such as a DynamoDB error. Details go to the function logs, not to the response |
+| 429 | API Gateway | Throttled by the default API Gateway limits. Retry with a delay |
+
+## Consistency Notes
+
+- `GET /tasks/{id}` uses a consistent read, so a task is readable immediately after it is created or updated.
+- `GET /tasks` reads a global secondary index, which is **eventually consistent**. A task created a moment ago can be missing from the list for a short time (usually well under a second). If your client lists right after a create, add the new task to its local list instead of re-reading, or retry.
+- Updates and deletes are conditional writes and are always evaluated against the latest data.
+
 ## Data Model
 
 Items in `TaskTable-<stage>`:
@@ -342,6 +487,14 @@ npm run lint    # ESLint
 
 CI runs both on every push and pull request for the four long-lived branches.
 
+The unit tests mock DynamoDB, so they cannot prove that the authorizer, the ownership checks and the index work together. After a deploy, run the smoke test, which creates two throwaway users, checks authentication and isolation end to end, and deletes what it created:
+
+```bash
+STAGE=dev REGION=us-west-2 ./scripts/smoke.sh
+```
+
+It needs the AWS CLI with credentials, `curl` and `node`.
+
 ## Deployment and Cleanup
 
 ```bash
@@ -365,8 +518,41 @@ This is a learning-oriented project, so it leaves out several things a productio
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
 - **No CORS configuration.** Browsers on another origin cannot call the API yet. Add `@middy/http-cors` or an `httpApi.cors` setting when a frontend needs it.
 - **Tasks from before ownership have no owner** and are unreachable until deleted or migrated. See [Deployment and Cleanup](#deployment-and-cleanup).
+- **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
+- **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility.
 - **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.
 - **Local invocation needs hand-written authorizer claims** and still uses the deployed table.
+
+## Security Notes
+
+- **Identity comes from the verified token, never from the request.** `ownerId` is the `sub` claim that API Gateway has already validated, and no endpoint accepts an owner from the body, path or query. A forged `nextToken` cannot reach another user's tasks either: the owner part of the cursor is rebuilt from the token.
+- **Another user's task is a `404`, not a `403`**, so the API does not reveal which task ids exist.
+- **Tokens are credentials.** Do not log them, paste them in issues or commit them. An ID token also carries the user's email.
+- **`USER_PASSWORD_AUTH` is convenient for testing and scripts**, but it sends the password to Cognito from your code. For real applications prefer the SRP flow of a Cognito SDK, or the hosted UI with PKCE.
+- **`admin-create-user` and `admin-set-user-password` skip email verification.** Use them for tests only.
+- **Everything is HTTPS.** API Gateway does not serve plain HTTP.
+- **The Lambda role is least-privilege**: five DynamoDB actions on one table and its indexes, nothing else.
+- **Each stage has its own user pool**, so a token from `dev` is rejected by `prod`.
+- Report a vulnerability privately to the maintainer instead of opening a public issue.
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+| --- | --- |
+| `401 Unauthorized` with a token | The token expired (one hour), or it comes from another stage's user pool. Get a new one. Check that the header is exactly `Authorization: Bearer <token>` |
+| `401` on every call, including a fresh token | `$TOKEN` is empty because the sign-in command failed. Run `echo "$TOKEN"` and check the command's error |
+| `bash: UserPoolClientId: No such file or directory` | A `<placeholder>` was pasted literally. In the shell `<` is a redirection: replace the whole `<...>` with the real value |
+| `UserNotFoundException` | The user does not exist in this stage's pool. Create it ([Authentication](#authentication)), or check `STACK` and `REGION` |
+| `NotAuthorizedException: Incorrect username or password` | Wrong credentials, or the password was never set with `--permanent` |
+| `UserNotConfirmedException` | The user signed up but did not confirm the email. Confirm it, or recreate it with `admin-create-user` |
+| `400` with an `errors` list | The body failed validation. Read each entry, for example `/body must have required property 'title'` |
+| `415 Unsupported Media Type` | Add `-H "Content-Type: application/json"` to `POST` and `PUT` |
+| `422 Invalid or malformed JSON` | The body is not valid JSON. In a Windows shell, quote the JSON with single quotes, or write it to a file and use `-d @file.json` |
+| `404 Task not found` on your own task | You are using another user's token, or the task was created before ownership was introduced and has no `ownerId` |
+| Empty list right after a create | `GET /tasks` is eventually consistent. Retry after a moment, or use `GET /tasks/{id}` |
+| `500` | Read the logs: `serverless logs -f <function> --tail` (functions: `createTask`, `getTasks`, `getTask`, `updateTask`, `deleteTask`) |
+| `serverless deploy` asks you to log in | Serverless v4 needs `serverless login` or `SERVERLESS_ACCESS_KEY`, and a valid `org` in `serverless.yml` |
+| The deploy fails on the first run in a fork | Review [Configuration for Forks](#configuration-for-forks); the `org` value belongs to the original author |
 
 ## Branching and Release Workflow
 
@@ -394,12 +580,12 @@ Recommended repository settings: make `development` the default branch so new pu
 
 ## Contributing
 
-Contributions are welcome.
+Contributions are welcome. The full, step-by-step guide for working from a fork is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In short:
 
-1. Fork the repository and create a branch from `development`, following the naming rules above: `git checkout -b add-my-change`.
-2. Make your change, keeping the style of the surrounding code.
+1. Fork the repository, add the original as `upstream`, and create a branch from an up-to-date `development`, following the naming rules above: `git checkout -b add-my-change`.
+2. Make your change, keeping the style of the surrounding code, and update `docs/openapi.yaml` and this README if the API changes.
 3. Run `npm run lint` and `npm test`, and add tests for new behavior.
-4. Deploy to your own AWS account and verify the affected endpoints manually.
+4. Deploy to your own AWS account on a personal stage and run `scripts/smoke.sh`.
 5. Keep commits small and focused, with a descriptive title and a message explaining what changed and why.
 6. Open a pull request against `development` describing the change and how you tested it.
 
