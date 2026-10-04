@@ -1,6 +1,6 @@
 # 0018: Decide where the frontend lives and how it ships
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `decide-frontend-repository-layout` (started from `development`)
 - **Roadmap step:** Frontend readiness track of [0000](0000-roadmap-to-layered-architecture.md), item "Frontend home"
 - **Pull request:** to be filled when opened
