@@ -1,0 +1,163 @@
+# One SNS topic receives every alarm. The email subscription exists only when an address is passed
+# at deploy time (--param="alarmEmail=<address>"), so no address is committed; other subscribers
+# (chat, paging) can be added to the topic without touching the alarms.
+Conditions:
+  HasAlarmEmail: !Not
+    - !Equals
+      - ${param:alarmEmail}
+      - ""
+
+Resources:
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ${self:service}-${sls:stage}-alarms
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlarmEmail
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: ${param:alarmEmail}
+
+  # Any 5xx from the API in a 5 minute period. Idle periods have no data and do not alarm.
+  ApiServerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ${self:service}-${sls:stage}-api-5xx
+      AlarmDescription: The API returned at least one 5xx response.
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: $default
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  # HTTP API publishes no throttle metric (throttled calls are 429s inside 4xx), so this watches
+  # Lambda concurrency throttles, summed over the functions. A new function must be added here.
+  LambdaThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ${self:service}-${sls:stage}-lambda-throttles
+      AlarmDescription: A Lambda function was throttled.
+      Metrics:
+        - Id: hello
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref HelloLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: createTask
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref CreateTaskLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: getTasks
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref GetTasksLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: getTask
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref GetTaskLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: updateTask
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref UpdateTaskLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: deleteTask
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref DeleteTaskLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: patchTask
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: AWS/Lambda
+              MetricName: Throttles
+              Dimensions:
+                - Name: FunctionName
+                  Value: !Ref PatchTaskLambdaFunction
+            Period: 300
+            Stat: Sum
+        - Id: total
+          Expression: SUM(METRICS())
+          Label: Throttles across all functions
+          ReturnData: true
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic
+
+  # p95 of the time API Gateway takes to answer, sustained for 15 minutes.
+  ApiLatencyP95Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ${self:service}-${sls:stage}-api-latency-p95
+      AlarmDescription: The p95 latency of the API stayed above 1500 ms.
+      Namespace: AWS/ApiGateway
+      MetricName: Latency
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref HttpApi
+        - Name: Stage
+          Value: $default
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 1500
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmTopic

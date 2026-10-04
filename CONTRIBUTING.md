@@ -55,15 +55,15 @@ npm run audit:prod                        # when you touched dependencies
 
 Add tests for new behavior. DynamoDB is mocked in `tests/helpers.js` (`mockDynamo`), so tests never reach AWS. If you touched the repository, also run the integration tests against DynamoDB Local: `DYNAMODB_ENDPOINT=http://localhost:8000 npm run test:integration` (start it with `docker run -p 8000:8000 amazon/dynamodb-local:3.3.1`).
 
-Then check it against a real deployment in your **own** AWS account, using a personal stage so you do not collide with anyone:
+Then check it against a real deployment in your **own** AWS account, using the `dev` stage (your account is your own, so it does not collide with anyone):
 
 ```bash
-serverless deploy --stage <your-name>
-STAGE=<your-name> ./scripts/smoke.sh   # authentication and isolation checks
-serverless remove --stage <your-name>  # clean up when you are done
+serverless deploy --stage dev
+STAGE=dev ./scripts/smoke.sh   # authentication and isolation checks
+serverless remove --stage dev  # clean up when you are done
 ```
 
-`serverless remove` deletes the stage's table and user pool with everything in them.
+`serverless remove` deletes the stage's table and user pool with everything in them. Only `dev` is a throwaway stage: any other stage name (a personal name included) is protected, so its table and user pool are retained, cannot be deleted and `serverless remove` fails. If you did deploy another name and want to remove it, see "Protected stages" in the README.
 
 Your fork does not deploy by itself: the deploy workflow runs only in the original repository, where merges to `development`, `staging` and `production` deploy `dev`, `staging` and `prod` (see [Deploying from GitHub Actions](README.md#deploying-from-github-actions)).
 

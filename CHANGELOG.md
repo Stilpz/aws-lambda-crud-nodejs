@@ -4,7 +4,7 @@ All notable changes to the Tasks API and its deployment are recorded here. The f
 
 ## [Unreleased]
 
-Planned as `1.2.0`: the changes below are merged to `development` and not yet released. Compatibility class: **operational** (the contract is unchanged; see Upgrade notes).
+Planned as `1.2.0`: the changes below are merged to `development` and not yet released. Compatibility class: **operational** for the table change (see Upgrade notes) and **non-breaking** for the new `PATCH` route and the deprecation of `PUT`; the highest class is minor, so `1.2.0` stands.
 
 ### Added
 
@@ -12,14 +12,24 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - A single error-mapping boundary for the task handlers ([spec 0004](specs/0004-standardize-error-responses.md)). Error bodies are unchanged: `{ "message": "..." }`, plus `errors` on validation failures.
 - A version 7 UUID generator in `src/infrastructure/uuidV7.js` ([spec 0006](specs/0006-redesign-task-table-keys.md)).
 - A smoke test check that a task appears in the listing immediately after it is created.
+- CORS on the HTTP API with explicit origins per stage (`stages.<stage>.params.webOrigins`), the `Authorization` and `Content-Type` headers, the methods of the API and the exposed `Deprecation` and `Sunset` headers; no wildcard and no credentials ([spec 0013](specs/0013-add-explicit-cors-origins.md)). Browsers on an allowed origin can now call the API.
 - The API versioning and deprecation policy, [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md), and this changelog ([spec 0017](specs/0017-define-api-versioning-policy.md)).
+- Observability ([spec 0009](specs/0009-add-observability-with-powertools.md)): structured JSON logs with a `correlation_id` (the API Gateway request id), X-Ray tracing including DynamoDB calls, a `ColdStart` metric, and CloudWatch alarms on API 5xx, Lambda throttles and p95 latency that notify an SNS topic. No API change.
+
+- `PATCH /tasks/{id}`: the partial update, answering `200` with the updated task. It takes the same body and has the same errors as `PUT` ([spec 0012](specs/0012-add-patch-task-route.md)).
 
 ### Changed
 
 - `GET /tasks` is now strongly consistent: a task created or updated is listed immediately. Before, the listing read a secondary index and could miss a task created a moment earlier.
 - New task ids are time-sortable UUIDs (version 7) instead of random version 4 UUIDs. Ids stay UUIDs, as `docs/openapi.yaml` declares (`format: uuid`); clients must treat them as opaque.
 - The table is keyed by `ownerId` (partition) and `id` (sort) and has no secondary index. It is named `Tasks-<stage>`, and the IAM policy no longer grants access to index resources.
+- Hardening ([spec 0010](specs/0010-harden-production-resources.md)): outside `dev` (every stage name other than `dev`) the task table and the user pool are retained when the stack is removed, protected against deletion, the table has point-in-time recovery, users may turn on authenticator-app MFA, and the app client no longer allows `USER_PASSWORD_AUTH` (SRP and refresh stay). Every route is throttled (429 above the limit), and each function has its own role limited to the one DynamoDB action it uses. The smoke test signs in through the admin flow in every stage.
+- Log groups now keep logs for 7 days in `dev` and 90 days in other stages (they never expired before), and unknown errors are logged as JSON through the Powertools logger instead of plain text.
 - `docs/openapi.yaml` `info.version` is `1.2.0`, and its description links the stability policy and states that pagination tokens are opaque and not valid across deployments (this was `1.0.0` at the releases `1.0.0` and `1.1.0`).
+
+### Deprecated
+
+- `PUT /tasks/{id}`, in favor of `PATCH /tasks/{id}`. It keeps working unchanged; every response carries `Deprecation: @1790985600`, `Sunset: Sat, 03 Apr 2027 00:00:00 GMT` and a `Link` header with `rel="deprecation"`. It may be removed after the sunset date, in a release announced in this changelog ([spec 0012](specs/0012-add-patch-task-route.md)). To migrate, change the verb to `PATCH`.
 
 ### Removed
 
@@ -31,6 +41,8 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - **A `nextToken` issued before the deploy is rejected with `400`.** Clients restart the listing from the first page when a stored token is rejected. Tokens are opaque and were never promised to survive a deployment.
 - **New ids are version 7 UUIDs.** Existing clients that treat ids as opaque UUIDs need no change.
 - Deploy the API stack and its table replacement together; there is no separate deployment of either.
+- **Protected stages.** Any stage other than `dev` is now protected: `serverless remove` fails there until it is redeployed with `--param="deletionPolicy=Delete" --param="tableProtection=false" --param="userPoolProtection=INACTIVE"`, and a retained table keeps its name after a teardown. A client that signs in with `USER_PASSWORD_AUTH` outside `dev` must switch to SRP. Applying this to an existing stage updates its resources in place (no replacement).
+- The deploy creates an SNS topic and three alarms. To receive alarm emails, deploy with `--param="alarmEmail=<address>"` and confirm the subscription email; without the parameter no email subscription is created.
 
 ## [1.1.0] - 2026-10-03
 

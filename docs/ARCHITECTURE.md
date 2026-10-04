@@ -25,6 +25,8 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 | Data | DynamoDB `Tasks-<stage>`, on-demand billing, partition key `ownerId`, sort key `id` (a time-sortable UUID version 7), no secondary index |
 | Request handling | middy: JSON body parser, Ajv JSON Schema validation, error-to-HTTP mapping |
 | Infrastructure as code | Serverless Framework v4, `serverless.yml` (service and provider) including one file per function from `functions/` and the table and Cognito resources from `resources/` |
+| Observability | Powertools for AWS Lambda (logger, tracer, metrics) in `src/infrastructure/observability.js`, applied by `withObservability` in the HTTP adapter; Lambda active tracing; CloudWatch alarms notifying an SNS topic |
+| Production safeguards | A stage profile (`stages` parameters in `serverless.yml`): strict by default, `dev` lenient. Outside dev the table and user pool are retained, deletion-protected and (table) recoverable to a point in time; the app client drops `USER_PASSWORD_AUTH`; MFA is optional; every route is throttled; each function has its own least-privilege role |
 | Delivery | CI runs lint, unit tests with a coverage threshold, OpenAPI lint, a runtime dependency audit, a CloudFormation lint of the `serverless.yml` resources and DynamoDB Local integration tests on pull requests; pushes to `development`, `staging` and `production` run the same checks and then deploy `dev`, `staging` and `prod` from GitHub Actions through per-stage AWS OIDC roles (no stored AWS keys), with an approval for `prod` and `scripts/smoke.sh` after each deploy |
 
 ### Request lifecycle
@@ -34,7 +36,8 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 3. `getOwnerId` (`src/handlers/auth.js`) reads `sub`. This is the only source of identity.
 4. For routes with a body, the middy stack parses it (`415` and `422` on failure) and validates it against a schema (`400`).
 5. The handler calls the use case for the operation (wired in `src/container.js`), passing the caller as `ownerId`. The use case works through the task repository; `DynamoTaskRepository` is the only code that talks to DynamoDB, through the shared document client (`src/infrastructure/dynamoClient.js`).
-6. The handler returns `{ statusCode, body }`. Errors thrown below it are turned into HTTP responses in one place, `withErrorMapping` (`src/handlers/errorBoundary.js`): not found is `404`, invalid pagination input is `400`, and anything else is logged and answered with `500` and a fixed message.
+6. The handler returns `{ statusCode, body }`. Errors thrown below it are turned into HTTP responses in one place, `withErrorMapping` (`src/handlers/errorBoundary.js`): not found is `404`, invalid pagination input is `400`, and anything else is logged through the Powertools logger and answered with `500` and a fixed message.
+7. `withObservability` (`src/handlers/withObservability.js`) wraps every handler from the outside. Before the handler runs it puts the Lambda context and the API Gateway request id (`correlation_id`) on the logger, opens the X-Ray subsegment and records a `ColdStart` metric on a first call; per-request log keys are cleared afterwards. Logging, metrics and tracing live in `src/infrastructure/observability.js` and are used only by the HTTP adapter, never by the use cases or the domain.
 
 ### Access patterns and ownership
 
@@ -59,7 +62,8 @@ All of these live in `DynamoTaskRepository` (`src/infrastructure/dynamoTaskRepos
 | `404` for other users' tasks | Does not reveal which ids exist | Slightly harder to debug a wrong token |
 | Conditional writes for update and delete | Atomic ownership check, no read-then-write race | Condition failures need mapping to `404` |
 | ESM + AWS SDK v3 | Required by middy 7; smaller, modular SDK | Node 22+ needed |
-| Validation with JSON Schema (Ajv) | One declarative source per body, used by `POST` and `PUT` | Messages come from Ajv, not hand-written |
+| Validation with JSON Schema (Ajv) | One declarative source per body, used by `POST`, `PATCH` and `PUT` | Messages come from Ajv, not hand-written |
+| CORS configured on the HTTP API, with explicit origins per stage | API Gateway answers preflights without a function or a token, and the policy is one reviewed list per stage instead of code in six handlers | API Gateway ignores CORS headers from functions, so the policy cannot vary per route; a `401` from the authorizer may carry no CORS header |
 | Stage-per-stack naming (`-<stage>`) | Stages share an account without touching each other's data or users | Resources are replaced if the naming changes |
 
 ## 4. Review findings
@@ -77,8 +81,8 @@ Found while auditing the code against the documentation. Status is as of this do
 | F7 | No end-to-end check of authentication and isolation | Fixed (`scripts/smoke.sh`); to be run in CI by step 8 |
 | F8 | `GET /tasks/{id}` used an eventually consistent read, so a task could be missing right after it was created | Fixed (`ConsistentRead`) |
 | F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)) and every use case requires `ownerId` ([spec 0003](../specs/0003-add-task-use-cases.md)). Error mapping now sits in one boundary ([spec 0004](../specs/0004-standardize-error-responses.md)) |
-| F10 | No observability, deploy pipeline, production safeguards (retention, point-in-time recovery, deletion protection) or CORS | Open; roadmap steps 6 to 9 |
-| F11 | `PUT` has PATCH semantics; `POST` is not idempotent | Open; roadmap step 11 |
+| F10 | No observability, deploy pipeline or production safeguards (retention, point-in-time recovery, deletion protection) | Partly resolved: observability and log retention in [spec 0009](../specs/0009-add-observability-with-powertools.md); retention, recovery, deletion protection, throttling, per-function IAM and MFA in [spec 0010](../specs/0010-harden-production-resources.md); CORS is fixed with explicit origins per stage ([spec 0013](../specs/0013-add-explicit-cors-origins.md)); the deploy pipeline remains open (roadmap step 8) |
+| F11 | `PUT` has PATCH semantics; `POST` is not idempotent | Partly fixed: `PATCH /tasks/{id}` is the partial update and `PUT` is deprecated with `Deprecation`, `Sunset` and `Link` headers ([spec 0012](../specs/0012-add-patch-task-route.md)). `POST` idempotency is open: roadmap step 11b |
 
 ## 5. Target architecture
 
@@ -134,12 +138,12 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 3 | `standardize-error-responses` | Typed errors and one error mapper; the `{ message }` shape is kept. **Done**, [spec 0004](../specs/0004-standardize-error-responses.md) | OpenAPI examples match responses |
 | 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership, or deletes them. Built in [spec 0005](../specs/0005-migrate-orphan-task-owners.md), then **retired** by step 5, which makes the problem impossible | Dry run on the dev table |
 | 5 | `redesign-task-table-keys` | New table `Tasks-<stage>` keyed `ownerId` and `id` (UUID version 7): consistent listing, no GSI, ownership implicit in the key. The old table is replaced, not migrated. **Done**, [spec 0006](../specs/0006-redesign-task-table-keys.md) | Smoke test. Breaking for cursors and for the old table's data |
-| 6 | `add-observability-with-powertools` | Structured logs, correlation id, tracing, metrics, log retention, alarms on 5xx, throttles and latency | Logs and alarms visible in dev |
+| 6 | `add-observability-with-powertools` | Structured logs, correlation id, tracing, metrics, log retention, alarms on 5xx, throttles and latency. **Done**, [spec 0009](../specs/0009-add-observability-with-powertools.md) | Logs and alarms visible in dev |
 | 7 | `add-ci-quality-gates` | OpenAPI lint, coverage threshold, dependency audit, template validation, DynamoDB Local integration job. **Done**, [spec 0007](../specs/0007-add-ci-quality-gates.md) | CI green on a pull request |
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy. **Done**, [spec 0008](../specs/0008-add-deploy-pipeline-oidc.md); the roles and Environments are created by hand | Deploy to dev from CI |
-| 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, explicit CORS origins, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev | Template validation; deploy to staging |
+| 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev. **Done** for retention, recovery, deletion protection, throttling, per-function IAM, MFA and the password flow, [spec 0010](../specs/0010-harden-production-resources.md); CORS and the browser sign-in client are separate specs | Template validation; deploy to staging |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files. **Done**, [spec 0011](../specs/0011-split-serverless-config-files.md); implemented before steps 6 and 9 | `serverless print` output unchanged |
-| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated | OpenAPI and tests |
+| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates, answering with the updated task; `PUT` kept and marked deprecated (sunset 2027-04-03). **Done**, [spec 0012](../specs/0012-add-patch-task-route.md) | OpenAPI and tests |
 | 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live (its spec is still to be written) | Retried `POST` creates one task |
 | 12 | `evaluate-typescript-migration` | Decision record: JSDoc types checked with `tsc` (no TypeScript migration) and Serverless v4 kept, with SAM as the fallback. **Done**, [spec 0016](../specs/0016-evaluate-typescript-migration.md), [record](decisions/0001-typing-and-deployment-framework.md) | Decision record in `docs/decisions/` |
 
