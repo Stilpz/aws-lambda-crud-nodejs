@@ -1,6 +1,7 @@
 # 0001: Extract the task repository port
 
 - **Status:** Approved
+- **Amendments:** 1 (see below)
 - **Branch:** `extract-task-repository-port` (started from the `v1.0.0` tag, whose commit contains `development`)
 - **Roadmap step:** 1 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -26,7 +27,7 @@ Put all task persistence behind a `TaskRepository` port implemented by `DynamoTa
    - `taskRepository.js`: the composition root. Builds the single instance from `dynamoClient` and `process.env.TABLE_NAME`.
 3. **Handlers** (`addTask`, `getTask`, `getTasks`, `updateTask`, `deleteTask`) call the port and map domain errors to the same HTTP responses as today. They no longer import the AWS SDK or the client.
 4. **Pagination:** `src/pagination.js` keeps only the HTTP concern (parsing and validating `limit`) and passes the raw `nextToken` through. Cursor encoding and decoding move into the repository.
-5. **Tests:** new repository tests using a fake client injected through the constructor. Handler tests keep their assertions.
+5. **Tests:** new repository tests using a fake client injected through the constructor. Handler tests keep their assertions. The cursor cases of `tests/pagination.test.js` move to the repository tests together with the logic they exercise.
 
 ## Out of scope
 
@@ -86,7 +87,8 @@ Behavior the port promises, which every implementation must honor:
 
 ## Acceptance criteria
 
-- [ ] All 65 existing tests pass with their assertions unchanged. The only allowed edit in existing tests is the import path of the client in `tests/helpers.js`.
+- [ ] The existing handler tests (`addTask`, `getTask`, `getTasks`, `updateTask`, `deleteTask`) and the `limit` cases of `tests/pagination.test.js` pass with their assertions unchanged. The only other allowed edit in existing tests is the client import path in `tests/helpers.js`.
+- [ ] The cursor cases of `tests/pagination.test.js` (decoding, ignoring a smuggled owner, round trip, invalid tokens) are removed from that file because the logic moved; each one is covered by an equivalent test in `tests/dynamoTaskRepository.test.js`.
 - [ ] New `DynamoTaskRepository` tests cover each method: success, ownership mismatch, `TaskNotFoundError`, cursor round trip, `InvalidCursorError`, ignoring non-updatable fields, and propagation of infrastructure errors.
 - [ ] No file in `src/*.js` handlers imports `@aws-sdk/*` or the client; only `src/infrastructure/` does.
 - [ ] `src/domain/` imports nothing from `src/infrastructure/` or handlers.
@@ -119,4 +121,9 @@ for f in addTask getTask getTasks updateTask deleteTask; do node --input-type=mo
 
 - **Risk:** a subtle difference in the DynamoDB parameters. Mitigated by keeping the handler tests unchanged and asserting the exact `send` inputs in the repository tests.
 - **Risk:** the cursor format drifts. Mitigated by a round-trip test and by asserting the decoded token equals `{ id, createdAt }`.
+- **Risk:** removing cursor tests from `pagination.test.js` could lose coverage. Mitigated by the one-to-one mapping to repository tests listed in the acceptance criteria.
 - **Rollback:** the change is internal and the API is unchanged, so reverting the merge commit restores the previous behavior with no data or infrastructure change.
+
+## Amendments
+
+1. **Cursor tests move with the cursor logic.** The first draft required all 65 existing tests to pass unchanged while also moving cursor encoding and decoding out of `src/pagination.js`. These contradict each other, because `tests/pagination.test.js` exercises that logic. Found while implementing; the maintainer chose to amend the spec so the cursor logic and its tests move together, rather than leave persistence details in the HTTP layer.
