@@ -17,6 +17,7 @@ const CREATE_ACTION_BY_TYPE = {
     "AWS::DynamoDB::Table": "dynamodb:CreateTable",
     "AWS::Cognito::UserPool": "cognito-idp:CreateUserPool",
     "AWS::Cognito::UserPoolClient": "cognito-idp:CreateUserPoolClient",
+    "AWS::Cognito::UserPoolDomain": "cognito-idp:CreateUserPoolDomain",
     "AWS::SNS::Topic": "sns:CreateTopic",
     "AWS::SNS::Subscription": "sns:Subscribe",
     "AWS::CloudWatch::Alarm": "cloudwatch:PutMetricAlarm",
@@ -28,7 +29,7 @@ const declaredResourceTypes = () =>
         .map(({ Type }) => Type);
 
 // Statements that may use Resource "*" because IAM cannot scope the action to a name.
-const UNSCOPED_ALLOWED = ["CloudFormationValidation", "UserPoolCreation", "LogGroupListing", "AlarmListing"];
+const UNSCOPED_ALLOWED = ["CloudFormationValidation", "UserPoolCreation", "UserPoolDomainDescribe", "LogGroupListing", "AlarmListing"];
 
 describe("the deploy role of infra/github-oidc.yml", () => {
     it("can create every type of resource the stack declares", () => {
