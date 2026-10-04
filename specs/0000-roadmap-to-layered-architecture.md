@@ -51,7 +51,7 @@ Each step gets its own spec, written and approved before the work starts, number
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files |
 | 11 | `add-patch-task-route` | `PATCH /tasks/{id}`; `PUT` kept and deprecated. The idempotency key moved to its own item below |
 | 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live. Spec to be written (number 0019) |
-| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; Serverless v4 versus SAM or CDK |
+| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; Serverless v4 versus SAM or CDK. Spec [0016](0016-evaluate-typescript-migration.md); record [`docs/decisions/0001-typing-and-deployment-framework.md`](../docs/decisions/0001-typing-and-deployment-framework.md) |
 
 Suggested order, as amended: steps 1 to 5 are done. For the rest, first the work that touches no deployed infrastructure (step 7, the decision records of step 12 and of the versioning and layout items), then the config split (step 10), observability (step 6) and hardening (step 9), in that order because all three edit the same file, then the deployment pipeline (step 8), and finally CORS, the PATCH route, the typed client and the SPA client. Step 5 was the only breaking change.
 

@@ -122,12 +122,12 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files | `serverless print` output unchanged |
 | 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated | OpenAPI and tests |
 | 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live (its spec is still to be written) | Retried `POST` creates one task |
-| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; and Serverless v4 (needs an account and org) versus SAM or CDK | Decision record in `docs/` |
+| 12 | `evaluate-typescript-migration` | Decision record: JSDoc types checked with `tsc` (no TypeScript migration) and Serverless v4 kept, with SAM as the fallback. **Done**, [spec 0016](../specs/0016-evaluate-typescript-migration.md), [record](decisions/0001-typing-and-deployment-framework.md) | Decision record in `docs/decisions/` |
 
 Suggested order, as amended in [spec 0000](../specs/0000-roadmap-to-layered-architecture.md): steps 1 to 5 are done. For the rest, first the work that touches no deployed infrastructure (step 7 and the decision records), then the config split (step 10), observability (step 6) and hardening (step 9), in that order because all three edit the same file, then the deployment pipeline (step 8), and finally CORS, the PATCH route, the typed client and the SPA client.
 
 ## 7. Open decisions
 
 - Keep the `{ message }` error shape, or adopt RFC 9457 problem details (breaking for clients).
-- Whether to move away from Serverless Framework v4, which requires an account and an `org`, so forks without one cannot deploy as is.
+- Resolved: Serverless Framework v4 stays, with SAM as the documented fallback, and the code stays JavaScript with JSDoc types checked by `tsc`; forks without a Serverless account still cannot deploy as is ([decision record](decisions/0001-typing-and-deployment-framework.md), [spec 0016](../specs/0016-evaluate-typescript-migration.md)).
 - Resolved: the listing no longer uses a GSI; it moved to the key redesign ([spec 0006](../specs/0006-redesign-task-table-keys.md)).
