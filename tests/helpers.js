@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDb } from "../src/infrastructure/dynamoClient.js";
+import { logger } from "../src/infrastructure/observability.js";
 
 export const OWNER_ID = "user-1";
 
@@ -51,4 +52,5 @@ export const conditionalCheckFailed = () =>
         name: "ConditionalCheckFailedException",
     });
 
-export const silenceErrorLogs = () => vi.spyOn(console, "error").mockImplementation(() => {});
+// Unknown errors are logged through the Powertools logger, so that is what tests silence and inspect.
+export const silenceErrorLogs = () => vi.spyOn(logger, "error").mockImplementation(() => {});
