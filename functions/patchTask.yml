@@ -1,0 +1,8 @@
+patchTask:
+  handler: src/handlers/patchTask.patchTask
+  events:
+    - httpApi:
+        path: /tasks/{id}
+        method: patch
+        authorizer:
+          name: cognitoAuthorizer
