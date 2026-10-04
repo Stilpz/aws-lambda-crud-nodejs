@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Tasks API
-  version: 1.0.0
+  version: 1.2.0
   description: |
     Serverless REST API for managing personal tasks (AWS Lambda, API Gateway HTTP API,
     DynamoDB, Amazon Cognito).
@@ -16,6 +16,13 @@ info:
 
     **Consistency.** `GET /tasks` and `GET /tasks/{id}` both use consistent reads: a task is
     readable and appears in the list as soon as it is created or updated.
+
+    **Stability.** Changes follow the policy in `docs/API_VERSIONING.md` of the repository:
+    breaking changes need a new major version and are announced and deprecated with
+    `Deprecation` and `Sunset` headers, and `info.version` always equals the release tag.
+    Pagination tokens (`nextToken`) are opaque and not guaranteed to be valid across
+    deployments; when one is rejected with `400`, start the listing again. Task ids are opaque
+    UUIDs.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
