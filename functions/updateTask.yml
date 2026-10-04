@@ -1,5 +1,13 @@
 updateTask:
   handler: src/handlers/updateTask.updateTask
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:UpdateItem
+          Resource:
+            - !GetAtt TaskTable.Arn
   events:
     - httpApi:
         path: /tasks/{id}

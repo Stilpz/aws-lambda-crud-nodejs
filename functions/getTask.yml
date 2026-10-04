@@ -1,5 +1,13 @@
 getTask:
   handler: src/handlers/getTask.getTask
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+          Resource:
+            - !GetAtt TaskTable.Arn
   events:
     - httpApi:
         path: /tasks/{id}

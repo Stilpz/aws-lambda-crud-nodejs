@@ -76,18 +76,8 @@ provider:
     POWERTOOLS_SERVICE_NAME: ${self:service}
     POWERTOOLS_METRICS_NAMESPACE: TasksApi
     POWERTOOLS_LOG_LEVEL: ${param:logLevel}
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - dynamodb:PutItem
-            - dynamodb:GetItem
-            - dynamodb:Query
-            - dynamodb:UpdateItem
-            - dynamodb:DeleteItem
-          Resource:
-            - !GetAtt TaskTable.Arn
+  # No provider-level IAM statements: each function declares the one DynamoDB action it needs in its
+  # own file, and a function without statements (hello) gets a role with logging permission only.
 
 functions:
   - ${file(./functions/hello.yml)}
