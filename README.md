@@ -85,7 +85,8 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)
 │   └── ARCHITECTURE.md # Design, findings and roadmap
 ├── scripts/
-│   └── smoke.sh        # Post-deploy authentication, isolation and CORS check
+│   ├── smoke.sh        # Post-deploy authentication, isolation, CORS and SPA client check
+│   └── pkce-login.mjs  # Manual check of the browser sign-in (authorization code with PKCE)
 ├── .github/            # CI workflow and pull request template
 ├── src/
 │   ├── handlers/       # HTTP adapter: one Lambda handler per route, plus its helpers
@@ -145,6 +146,7 @@ The output lists the base URL of your API, similar to `https://xxxxxxxxxx.execut
 | `service` | `serverless.yml` | Optional. Rename it to change the CloudFormation stack and resource names. |
 | `provider.region` | `serverless.yml` | Change if you want another AWS region. |
 | `stages.<stage>.params.webOrigins` | `serverless.yml` | The origins that may call the API from a browser, per stage. Replace the `example.com` placeholders of `staging` and `prod` with your frontend domains. |
+| `stages.<stage>.params.spaCallbackUrls`, `spaLogoutUrls` | `serverless.yml` | The exact URLs the hosted sign-in may redirect to after login and logout, per stage. Replace the `example.com` placeholders of `staging` and `prod`. |
 
 The table, the user pool and their ARNs are built from the stage and the stack, so nothing else is tied to an account. Handlers read the table name from the `TABLE_NAME` environment variable that `serverless.yml` sets.
 
@@ -158,7 +160,7 @@ Authorization: Bearer <token>
 
 Requests without a token, or with an invalid or expired one, are rejected by API Gateway with `401 Unauthorized` before any function runs.
 
-The deploy exports two values as CloudFormation stack outputs: `UserPoolId` and `UserPoolClientId`. The pool signs users in with their email, requires passwords of at least 8 characters with lowercase, uppercase and a number, and the app client allows the flows below, which depend on the stage:
+The deploy exports four values as CloudFormation stack outputs: `UserPoolId` and `UserPoolClientId` (used below), and `SpaClientId` and `HostedUiBaseUrl` (for browser apps, see [Sign-in for a browser app](#sign-in-for-a-browser-app-hosted-ui-authorization-code-with-pkce)). The pool signs users in with their email, requires passwords of at least 8 characters with lowercase, uppercase and a number, and the app client allows the flows below, which depend on the stage:
 
 | Stage | Allowed flows |
 | --- | --- |
@@ -167,7 +169,25 @@ The deploy exports two values as CloudFormation stack outputs: `UserPoolId` and 
 
 Outside `dev`, users may also turn on multi-factor authentication with an authenticator app (software token); it is optional and off for users who do not enrol. In `dev` MFA is off.
 
-The steps below use the AWS CLI. Replace the stack name if your stage is not `dev`, and use your own email and password.
+### Sign-in for a browser app (hosted UI, authorization code with PKCE)
+
+The user pool has a second app client for single-page apps, `SpaClientId`, and a hosted sign-in domain, `HostedUiBaseUrl` (both stack outputs). The app sends the user to the Cognito sign-in page, so it never handles the password, and exchanges the one-time code for tokens:
+
+| | Script client (`UserPoolClientId`) | Browser client (`SpaClientId`) |
+| --- | --- | --- |
+| For | `scripts/smoke.sh` and the AWS CLI | The React app |
+| Sign-in | The flows of the table above | Authorization code with PKCE on the hosted pages; no password flow in any stage |
+| Secret | none | none (a browser cannot keep one) |
+| Scopes | none | `openid`, `email` |
+| Tokens | ID and access: 1 hour | ID and access: 60 minutes, refresh token: 7 days, rotated on every refresh |
+
+- **Redirect URLs are exact and per stage.** Cognito only redirects to the callback and logout URLs registered for the client: `stages.<stage>.params.spaCallbackUrls` and `spaLogoutUrls` in `serverless.yml`. They are `https` URLs, except `http://localhost` in the default stage for local development. Replace the `example.com` placeholders of `staging` and `prod` with your frontend domain.
+- **Always send PKCE.** Cognito accepts an authorization request without `code_challenge`, so nothing on the server forces it: the app must send `code_challenge_method=S256` and the matching `code_verifier` at the token endpoint. The token endpoint can be called from the browser.
+- **Which token the API gets.** The authorizer accepts the ID token and the access token of both clients (an ID token carries the client id in `aud`, an access token in `client_id`). A browser app should send the **access token**: it carries no email or profile data. The user is the same whichever client signed them in (`sub`), so they see the same tasks.
+- **Refreshing.** When the API answers `401` because the access token expired, post `grant_type=refresh_token` to `<HostedUiBaseUrl>/oauth2/token`, store the new tokens (and the new refresh token), and retry once. A refresh token that Cognito refuses means the session is over: sign in again.
+- **Trying it.** `scripts/pkce-login.mjs` runs the whole flow against a deployed stage, with you typing the password in the browser; see the comment at the top of the file for the three values it needs.
+
+The steps below use the AWS CLI with the script client. Replace the stack name if your stage is not `dev`, and use your own email and password.
 
 **1. Read the deployed values**
 

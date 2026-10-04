@@ -18,6 +18,8 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 
 - `PATCH /tasks/{id}`: the partial update, answering `200` with the updated task. It takes the same body and has the same errors as `PUT` ([spec 0012](specs/0012-add-patch-task-route.md)).
 
+- A Cognito app client for browser apps with the hosted sign-in (user pool domain, authorization code flow with PKCE, scopes `openid` and `email`, no password flow, access and ID tokens of 60 minutes, a 7 day rotated refresh token), the stack outputs `SpaClientId` and `HostedUiBaseUrl`, per-stage callback and logout URLs (`spaCallbackUrls`, `spaLogoutUrls`), and `scripts/pkce-login.mjs` for a manual end-to-end check ([spec 0015](specs/0015-add-spa-cognito-app-client.md)). The JWT authorizer now also accepts tokens of this client. Compatibility class: **non-breaking** (the authorizer accepts more, nothing is removed); the existing client and its flows are unchanged. The deploy creates a new resource type, `AWS::Cognito::UserPoolDomain`, so the role that deploys needs permission for it.
+
 ### Changed
 
 - `GET /tasks` is now strongly consistent: a task created or updated is listed immediately. Before, the listing read a secondary index and could miss a task created a moment earlier.
