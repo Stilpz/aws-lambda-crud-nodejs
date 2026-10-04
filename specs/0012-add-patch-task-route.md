@@ -3,8 +3,9 @@
 - **Status:** Approved
 - **Branch:** `add-patch-task-route` (started from `development`)
 - **Roadmap step:** 11 of [0000](0000-roadmap-to-layered-architecture.md)
+- **Amendments:** 1 (see the end of this spec)
 - **Pull request:** to be filled when opened
-- **Supersedes / depends on:** builds on [0003](0003-add-task-use-cases.md) and [0004](0004-standardize-error-responses.md) (both merged). Interacts with 0010 (hardening: route throttling), 0011 (config split: where the new function is declared) and 0013 (CORS: `PATCH` and the deprecation headers must be allowed and exposed). See Decisions 1 and 5: this spec **proposes amending the roadmap** so the idempotency key on `POST` leaves step 11.
+- **Supersedes / depends on:** builds on [0003](0003-add-task-use-cases.md) and [0004](0004-standardize-error-responses.md), and follows the deprecation process of [0017](0017-define-api-versioning-policy.md) (`docs/API_VERSIONING.md`); all merged. Built on the configuration split of [0011](0011-split-serverless-config-files.md) and on the CORS configuration of [0013](0013-add-explicit-cors-origins.md), which already allows `PATCH` and exposes `Deprecation` and `Sunset`. The idempotency key on `POST` left this step with the maintainer's approval (roadmap step 11b, spec number 0019). Interacts with 0010 (hardening: route throttling).
 
 ## Context
 
@@ -20,22 +21,22 @@ Add `PATCH /tasks/{id}` as the documented partial update, keep `PUT /tasks/{id}`
 
 ## Scope
 
-1. **Route and function:** a new function `patchTask` in `serverless.yml` for `PATCH /tasks/{id}` with the same JWT authorizer as the other task routes, and a handler `src/handlers/patchTask.js`.
+1. **Route and function:** a new function file `functions/patchTask.yml` for `PATCH /tasks/{id}` with the same JWT authorizer as the other task routes, included from the root `serverless.yml` (one added line in its `functions:` list), and a handler `src/handlers/patchTask.js`.
 2. **Behavior of `PATCH`:** same input rules as today's update: JSON body, `Content-Type: application/json` (`415` otherwise, `422` on malformed JSON), the existing `updateTaskSchema` (at least one of `title`, `description`, `done`; unknown fields ignored; `title` non-blank), ownership scoped by the token, another user's task is `404`. Different from `PUT`: the success response is `200` with the **updated task** (the `Task` schema), not a message.
 3. **Port and use case:** `TaskRepository.update` resolves the updated task instead of `void`; `DynamoTaskRepository.update` returns the `Attributes` it already receives with `ALL_NEW`; `updateTask` use case returns it. `PUT` keeps its `{ message }` body by ignoring the returned task.
-4. **Deprecation of `PUT`:** `operation.deprecated: true` in OpenAPI with a description that points to `PATCH`, and the response headers described in Design on **every** response the `updateTask` function produces (success and errors).
+4. **Deprecation of `PUT`, following section 4 of `docs/API_VERSIONING.md`:** `operation.deprecated: true` in OpenAPI with a description that names `PATCH` and the removal date, the headers `Deprecation`, `Sunset` and `Link` described in Design on **every** response the `updateTask` function produces (success and errors), and a `Deprecated` entry in the changelog.
 5. **Tests:** handler tests for `PATCH` (success body, validation, `415`, `422`, `404`, `500`, ownership), use-case test for the returned task, repository tests for the returned attributes, tests that `PUT` is byte-for-byte unchanged apart from the added headers.
 6. **Smoke test:** `scripts/smoke.sh` exercises `PATCH` as the main update check (own task `200` and returns the changed field, another user `404`) and keeps one `PUT` check that also asserts the `Deprecation` header.
-7. **Documentation:** `docs/openapi.yaml`, README API tables and examples (use `PATCH`, mark `PUT` deprecated), `docs/ARCHITECTURE.md` (F11 partly closed, roadmap row), project tree.
+7. **Documentation:** `docs/openapi.yaml`, README API tables and examples (use `PATCH`, mark `PUT` deprecated), `CHANGELOG.md` (`Added` and `Deprecated` entries under `Unreleased`), `docs/ARCHITECTURE.md` (F11 partly closed, roadmap row), project tree.
 
 ## Out of scope
 
-- **The idempotency key on `POST`.** Moved to its own spec, to be written and numbered when the maintainer approves Decision 1, which also amends the roadmap row for step 11.
-- Removing `PUT` or choosing a removal date: a later spec, after the sunset date has passed.
-- A versioning or deprecation policy for the whole API: roadmap item `define-api-versioning-policy`. This spec applies the signalling it will formalize and must not contradict it.
+- **The idempotency key on `POST`.** Moved to its own spec, number 0019 (roadmap step 11b, already recorded in spec 0000 with the maintainer's approval).
+- Removing `PUT`: a later spec, after the sunset date has passed.
+- The versioning and deprecation policy itself: spec 0017 (merged). This spec is its first use and must follow its section 4.
 - JSON Merge Patch (RFC 7396) null-to-delete semantics or JSON Patch (RFC 6902): no field is removable today, so there is nothing to delete (YAGNI).
 - Optimistic concurrency (`ETag`, `If-Match`): not required for a single-owner task list; a new spec if multi-device conflicts appear.
-- CORS configuration: spec 0013 (it must list `PATCH`; see Risks).
+- CORS configuration: spec 0013 (merged). It already lists `PATCH` and exposes `Deprecation` and `Sunset`; `Link` is not CORS-safelisted for scripts and is not exposed, so only non-browser clients read it.
 - Observability, throttling and per-function IAM for the new function: steps 6 and 9. The shared role already grants `dynamodb:UpdateItem`.
 
 ## Design
@@ -60,13 +61,13 @@ A React client updating a checkbox needs the resulting task to refresh its cache
 Three layers, all additive:
 
 1. **Contract:** `deprecated: true` on `PUT /tasks/{id}` in `docs/openapi.yaml`. Generators (spec 0014) surface it as a deprecation annotation. The description names `PATCH` as the replacement.
-2. **Response headers** on every response of the `PUT` function:
-   - `Deprecation: @<unix-seconds>` (RFC 9745, a Structured Field date: the moment `PUT` became deprecated, i.e. the release date of this change).
-   - `Sunset: <HTTP-date>` (RFC 8594), **only once** the maintainer fixes a removal date (Decision 3). Announcing a date the project has not committed to is worse than none.
-   - `Link: </tasks/{id}>; rel="successor-version"` is **not** used: the successor is the same URL with another method, which a `Link` header cannot express. The OpenAPI description and the README carry that information instead.
+2. **Response headers** on every response of the `PUT` function, as required by section 4 of the policy:
+   - `Deprecation: @<unix-seconds>` (RFC 9745, a Structured Field date): the moment `PUT` was deprecated.
+   - `Sunset: <HTTP-date>` (RFC 8594), never earlier than the deprecation date and at least 90 days after the release that deprecates (policy section 4.3).
+   - `Link: <migration notes url>; rel="deprecation"`, pointing at the changelog. A `successor-version` link is not used: the successor is the same URL with another method, which a `Link` header cannot express; the OpenAPI description and the README carry that information instead.
 3. **Documentation:** README and OpenAPI say `PUT` is deprecated and give the migration (change the verb, optionally use the returned task).
 
-The headers are added by a small middleware applied to the `PUT` function only (`withDeprecation`, in `src/handlers/`), so they are present on `200`, `400`, `404`, `415`, `422` and `500` produced by the function. Responses generated by API Gateway itself (`401` from the authorizer, `404` for an unknown route) cannot carry them; that is documented. A browser can only read these headers if CORS exposes them (spec 0013, `exposedResponseHeaders`); this spec lists the exact names (`Deprecation`, `Sunset`) for that spec.
+The headers are added by a small wrapper around the `PUT` handler only (`withDeprecation`, in `src/handlers/`; a plain function around the middy-wrapped handler, so it also sees the `400`, `415` and `422` responses that middy produces), so they are present on `200`, `400`, `404`, `415`, `422` and `500` produced by the function. Responses generated by API Gateway itself (`401` from the authorizer, `404` for an unknown route) cannot carry them; that is documented. A browser can read `Deprecation` and `Sunset` because spec 0013 exposes them. The dates are two constants next to the handler, `deprecatedAt` (2026-10-03) and `sunsetAt` (2027-04-03, about six months later, comfortably over the 90 days of the policy); the maintainer adjusts them at release time if the release slips by more than three months.
 
 What must not break: the `PUT` request schema, status codes, response body, error shapes and the ownership rule are unchanged, and the existing `updateTask` handler tests keep passing with unchanged assertions (headers are an addition). `scripts/smoke.sh` keeps a `PUT` check, so a regression is caught after deploy.
 
@@ -100,24 +101,25 @@ Recommendation: ship `PATCH` and the deprecation in this spec; write a follow-up
 
 | Area | Impact |
 | --- | --- |
-| Public API (`docs/openapi.yaml`) | **Additive, not breaking.** New operation `PATCH /tasks/{id}` (`operationId: patchTask`, request `UpdateTask`, `200` `Task`, `400`, `401`, `404`, `415`, `422`, `500`, same shared response components). `PUT /tasks/{id}` gains `deprecated: true` and a description pointing to `PATCH`, its body and codes unchanged; the `Deprecation` (and later `Sunset`) response headers are documented as header components on its responses. `info.version` moves to `1.2.0` (additive change; spec 0014's drift check will need regenerating, see Decision 4). |
-| Client-visible behavior | New route. `PUT` responses gain a `Deprecation` header. No existing field, status or body changes. |
+| Public API (`docs/openapi.yaml`) | **Additive, not breaking.** New operation `PATCH /tasks/{id}` (`operationId: patchTask`, request `UpdateTask`, `200` `Task`, `400`, `401`, `404`, `415`, `422`, `500`). `PUT /tasks/{id}` gains `deprecated: true` and a description pointing to `PATCH` and the removal date; its body and codes are unchanged, and the `Deprecation`, `Sunset` and `Link` response headers are documented on its responses (as header components). `info.version` is already `1.2.0` (set by spec 0017 for the unreleased minor release), so it does not change here. |
+| Compatibility (policy 0017) | **Non-breaking, minor** for the new route (a new route is the policy's own example) and the start of a deprecation for `PUT` (a deprecation is announced, not a removal). Recorded in the changelog under `Added` and `Deprecated`. |
+| Client-visible behavior | New route. `PUT` responses gain `Deprecation`, `Sunset` and `Link` headers. No existing field, status or body changes. |
 | Port | `TaskRepository.update` returns `Promise<Task>` instead of `Promise<void>`. Internal; no HTTP effect. |
-| Infrastructure (`serverless.yml`) | One new function `patchTask` with an `httpApi` event (`PATCH /tasks/{id}`, `cognitoAuthorizer`). No new resource or permission. Takes effect on deploy; until then the route does not exist. |
+| Infrastructure | One new function file `functions/patchTask.yml` with an `httpApi` event (`PATCH /tasks/{id}`, `cognitoAuthorizer`) and one added include line in the root `serverless.yml`. No new resource or permission. Takes effect on deploy; until then the route does not exist. |
 | Data model | none |
-| Documentation | `docs/openapi.yaml`, README (tables, examples, rules of thumb, known limitations, project tree), `docs/ARCHITECTURE.md` (F11, roadmap), Spanish references, specs index and roadmap row of 0000 |
+| Documentation | `docs/openapi.yaml`, README (tables, examples, rules of thumb, known limitations, project tree), `CHANGELOG.md`, `docs/ARCHITECTURE.md` (F11, roadmap row), Spanish references (listed to the maintainer, not edited here), specs index |
 
 ## Acceptance criteria
 
 - [ ] `PATCH /tasks/{id}` with `{ "done": true }` answers `200` with the full updated task (all six fields, `done: true`); an empty body, a blank `title` or a wrong type answers `400` with the `{ message, errors }` shape; `Content-Type` other than JSON answers `415`; malformed JSON answers `422`; a missing task and another user's task answer `404` with the same body.
 - [ ] `PATCH` ignores `id`, `ownerId` and `createdAt` in the body, and changes only the fields sent.
 - [ ] `PUT /tasks/{id}` request validation, status codes and bodies are unchanged; the existing `tests/updateTask.test.js` assertions pass unchanged (new assertions for headers are added, none edited).
-- [ ] Every response of the `PUT` function, including `400`, `404`, `415`, `422` and `500`, carries `Deprecation: @<seconds>` and no `Sunset` header until Decision 3 provides a date; the `PATCH` function sends neither.
+- [ ] Every response of the `PUT` function, including `400`, `404`, `415`, `422` and `500`, carries `Deprecation: @<seconds>`, `Sunset: <HTTP-date>` (later than the deprecation date by at least 90 days) and `Link: <...>; rel="deprecation"`; the `PATCH` function sends none of them.
 - [ ] `TaskRepository.update` documents and returns the updated task; `DynamoTaskRepository` and `InMemoryTaskRepository` both do, covered by tests.
-- [ ] `docs/openapi.yaml` lints clean (`npx @redocly/cli lint docs/openapi.yaml`), contains `patchTask`, marks `updateTask` `deprecated: true`, and its `PATCH` examples match the real responses.
-- [ ] `serverless.yml` has the `patchTask` function on `PATCH /tasks/{id}` with the Cognito authorizer, and no other change; its handler path resolves to an exported function.
+- [ ] `docs/openapi.yaml` lints clean (`npm run lint:api`), contains `patchTask`, marks `updateTask` `deprecated: true`, documents the three headers on every `PUT` response except `401`, and its `PATCH` examples match the real responses.
+- [ ] `functions/patchTask.yml` defines the `patchTask` function on `PATCH /tasks/{id}` with the Cognito authorizer and `serverless.yml` includes it; no other line of the configuration changes, and `npx serverless print --stage dev` resolves it. Its handler path resolves to an exported function.
 - [ ] `scripts/smoke.sh` passes `bash -n`, checks `PATCH` own (`200`, returns the changed field) and foreign (`404`), and the `PUT` deprecation header.
-- [ ] README, `docs/ARCHITECTURE.md` and the Spanish references describe `PATCH` first and `PUT` as deprecated, with matching structure in both languages.
+- [ ] README, `docs/ARCHITECTURE.md` and `CHANGELOG.md` describe `PATCH` first and `PUT` as deprecated (changelog `Added` and `Deprecated` entries); the English changes are listed for the Spanish mirror.
 - [ ] No idempotency code, table or header is present.
 - [ ] `npm run lint` and `npm test` pass.
 
@@ -125,10 +127,11 @@ Recommendation: ship `PATCH` and the deprecation in this spec; write a follow-up
 
 ```bash
 npm run lint && npm test
-npx @redocly/cli lint docs/openapi.yaml
+npm run lint:api
 grep -n "deprecated: true" docs/openapi.yaml                       # exactly one, under put
 grep -n "operationId: patchTask" docs/openapi.yaml
-git diff development -- serverless.yml | grep '^[+-] ' | grep -vi "patch\|patchTask"   # only the new function block
+git diff development --stat -- serverless.yml functions                # one added include line and functions/patchTask.yml
+npx serverless print --stage dev | grep -B2 -A6 "patchTask:"
 grep -rniE "idempoten" src serverless.yml                          # prints nothing
 bash -n scripts/smoke.sh
 ```
@@ -137,20 +140,20 @@ After the maintainer deploys to `dev`: `STAGE=dev ./scripts/smoke.sh` passes, an
 
 ## Commit plan
 
-1. Add this spec (Draft, then Approved by the maintainer).
-2. Return the updated task from `TaskRepository.update`, `DynamoTaskRepository`, the in-memory double and the `updateTask` use case, with tests (the `PUT` handler ignores it).
+1. Add this spec (Draft, then Approved by the maintainer), and amend it to the merged policy and configuration (this amendment).
+2. Return the updated task from `TaskRepository.update` (port documentation, `DynamoTaskRepository`, the in-memory double and the shared contract suite), with tests; the `updateTask` use case already returns the repository result.
 3. Add the `patchTask` handler with its tests.
-4. Register the `patchTask` function in `serverless.yml`.
-5. Add the `Deprecation` middleware to the `PUT` handler, with tests.
+4. Register the `patchTask` function in `functions/patchTask.yml` and include it from `serverless.yml`.
+5. Add the deprecation headers wrapper to the `PUT` handler, with tests.
 6. Document `PATCH` and deprecate `PUT` in `docs/openapi.yaml`.
 7. Extend the smoke test.
-8. Update README, ARCHITECTURE and the Spanish references, amend the roadmap row of step 11 (idempotency moved), close this spec.
+8. Update the README, `docs/ARCHITECTURE.md` and `CHANGELOG.md`, and close this spec (the roadmap row of step 11 was already amended).
 
 ## Risks and rollback
 
-- **Risk:** CORS (spec 0013) rejects `PATCH` preflights if `PATCH` is missing from the allowed methods, which only matters once a browser calls it. Mitigated by listing `PATCH`, `Deprecation` and `Sunset` as requirements in 0013 and ordering the deploys sensibly (0013 is not required to merge first, since no browser client exists yet).
+- **Risk:** CORS rejects `PATCH` preflights if `PATCH` is missing from the allowed methods. Resolved: spec 0013 is merged below this branch and lists `PATCH`, `Deprecation` and `Sunset`; its configuration test pins them.
 - **Risk:** clients ignore the deprecation. Accepted: signalling is advisory; removal is a later spec with a sunset date.
-- **Risk:** a stale `Deprecation` date after a re-release. Mitigated by one constant in the middleware and a test that pins its format.
+- **Risk:** a wrong or stale date. The two dates are constants in one place and a test pins the header formats and the 90 day minimum between them. If the release slips by more than three months, the maintainer moves them in the release pull request.
 - **Risk:** the port change breaks a third repository implementation. None exists besides the Dynamo one and the test double, both updated in the same commit.
 - **Rollback:** revert the merge and redeploy; the `patchTask` function and route disappear and `PUT` returns to its previous responses. No data is touched.
 
@@ -158,6 +161,17 @@ After the maintainer deploys to `dev`: `STAGE=dev ./scripts/smoke.sh` passes, an
 
 1. **Idempotency key leaves this step (recommended).** Default: this spec delivers `PATCH` and the deprecation only; a separate spec adds the key with its own table and retention, and the roadmap row of step 11 is amended accordingly. Alternative: keep it here, accept a larger pull request with a new table.
 2. **`PATCH` returns the updated task (recommended)**, with the port change. Alternative: return `{ message }` like `PUT` and leave the port as it is (smaller, but the React client must re-fetch).
-3. **Sunset date (recommended: none yet).** Send only `Deprecation` now; add `Sunset` when the maintainer commits to a removal date (suggested minimum: six months after the release containing this change).
-4. **OpenAPI version bump (recommended: `1.2.0`).** An additive route is a minor release of the contract.
+3. **Sunset date (amended, see Amendment 1).** Originally: no `Sunset` until the maintainer commits to a date. Now: `Sunset` is sent from the first release, 2027-04-03, because policy 0017 requires it on every response of a deprecated operation.
+4. **OpenAPI version bump (amended).** `info.version` is already `1.2.0` (spec 0017), so nothing changes here; the new route is part of that minor release.
 5. **Deprecation headers scope (recommended: every response of the `PUT` function).** Alternative: only the `200`.
+
+## Amendment 1
+
+Written when implementation started, after specs 0007, 0011, 0013, 0016, 0017 and 0018 were merged into the branch. Reality differed from the draft in these points, so the spec was changed before any code:
+
+- **The policy requires `Sunset` and `Link`.** Section 4.2 of `docs/API_VERSIONING.md` (spec 0017) says every response of a deprecated operation carries `Deprecation`, `Sunset` and `Link: <...>; rel="deprecation"`, with at least 90 days between the release that deprecates and the `Sunset` date, and names this step as its first use. The draft's Decision 3 ("no `Sunset` yet") contradicts it. The sunset date is now sent from the start (2027-04-03, with the deprecation date 2026-10-03; both constants, to be moved at release time if needed), and the draft's rejection of `Link` applies only to the `successor-version` relation, not to `rel="deprecation"`. **Decision 3 was approved in its original form; this amendment needs re-approval by the maintainer.**
+- **The configuration is split** (spec 0011): the new function is `functions/patchTask.yml` plus one include line, not a block in `serverless.yml`.
+- **`info.version` is already `1.2.0`** (spec 0017), so Decision 4 no longer changes it; the changelog `Unreleased` section is where this change is recorded (policy section 5), with `Added` and `Deprecated` entries and a compatibility class.
+- **The roadmap row of step 11 was already amended** (step 11b, spec 0019), so no roadmap edit is part of this spec.
+- **CORS is merged** (spec 0013) with `PATCH`, `Deprecation` and `Sunset` already listed.
+- **The `updateTask` use case needs no change:** it already returns what the repository returns, so only the port, the Dynamo repository, the in-memory double and the shared contract suite change. `tests/helpers.js` gives `mockDynamo` a default `{}` result, because a real client always resolves an object; no assertion of an existing test changes.
