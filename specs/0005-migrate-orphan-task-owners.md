@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `migrate-orphan-task-owners`, stacked on `standardize-error-responses` (PR #21) because both edit the specs index and the architecture roadmap table; merge #21 first
 - **Roadmap step:** 4 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#22](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/22)
 - **Supersedes / depends on:** none in code; builds on the ownership model of [0001](0001-extract-task-repository-port.md)
 
 ## Context
@@ -69,7 +69,7 @@ Alternatives rejected: an AWS Lambda or a Serverless custom resource (a one-time
 - [x] `src/`, `serverless.yml` and `docs/openapi.yaml` are unchanged.
 - [x] `node scripts/migrate-orphan-task-owners.js --help` prints the usage and exits 0; running it with no arguments prints the usage and exits non-zero without contacting AWS.
 - [x] `npm run lint` and `npm test` pass.
-- [ ] The pull request links this spec and states it matches it.
+- [x] The pull request links this spec and states it matches it (#22).
 
 ## Verification
 
