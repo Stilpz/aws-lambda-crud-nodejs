@@ -1,6 +1,7 @@
 # 0006: Redesign the task table keys
 
 - **Status:** Approved
+- **Amendments:** 1 (see below)
 - **Branch:** `redesign-task-table-keys`, stacked on `migrate-orphan-task-owners` (step 4) because it edits the same specs index, roadmap table and README migration section; merge #21 and step 4 first
 - **Roadmap step:** 5 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -35,7 +36,8 @@ Key the table by the owner and the task id, so ownership is implicit in the key,
 3. **Id generation:** a small `generateUuidV7` in `src/infrastructure/uuidV7.js`, passed to `createTask` from the composition root (the use case already receives its id generator).
 4. **Infrastructure:** `serverless.yml` table definition (new name, key schema, no index) and IAM (the `/index/*` resource is removed; the actions stay). The Lambda environment still exposes the name as `TABLE_NAME`.
 5. **Retire** the step 4 script, its tests and its npm script and README section.
-6. **Documentation:** README (table name, data model, consistency notes, deployment and cleanup), `docs/openapi.yaml` description (listing is now consistent), `docs/ARCHITECTURE.md` (access patterns, F2, roadmap), the Spanish references, and the migration notes for upgraders.
+6. **Smoke test:** `scripts/smoke.sh` gains one check that a task is in the listing immediately after it is created, which is the visible benefit of the new design.
+7. **Documentation:** README (table name, data model, consistency notes, deployment and cleanup), `docs/openapi.yaml` description (listing is now consistent), `docs/ARCHITECTURE.md` (access patterns, F2, roadmap), the Spanish references, and the migration notes for upgraders.
 
 ## Out of scope
 
@@ -81,6 +83,7 @@ Alternatives rejected: keeping the secondary index and making it consistent (not
 - [ ] `serverless.yml`: no `GlobalSecondaryIndexes`, key schema `ownerId` (HASH) and `id` (RANGE), table name `Tasks-${sls:stage}`, no `/index/*` in IAM.
 - [ ] The step 4 script, tests, npm script and README section are removed, and nothing references them.
 - [ ] The existing handler and use-case tests that assert behavior still pass; tests that assert the table design are updated to the new requests, and each such change is justified in its commit message.
+- [ ] `scripts/smoke.sh` checks that a freshly created task appears in the listing straight away, and `bash -n` accepts it.
 - [ ] The README, OpenAPI description, ARCHITECTURE and the Spanish references describe the new design and the upgrade notes, with matching structure in both languages.
 - [ ] `npm run lint` and `npm test` pass.
 - [ ] The pull request links this spec and states it matches it.
@@ -105,7 +108,8 @@ After the maintainer deploys to `dev`: `STAGE=dev ./scripts/smoke.sh` passes, an
 4. Generate version 7 ids in the composition root.
 5. Change the table definition and IAM in `serverless.yml`.
 6. Retire the step 4 migration script.
-7. Update the documentation and OpenAPI, close this spec.
+7. Add the read-your-writes check to the smoke test.
+8. Update the documentation and OpenAPI, close this spec.
 
 ## Risks and rollback
 
@@ -114,3 +118,7 @@ After the maintainer deploys to `dev`: `STAGE=dev ./scripts/smoke.sh` passes, an
 - **Risk:** ids created in the same millisecond have no defined order. Accepted and documented; creation time to the millisecond is the ordering contract.
 - **Risk:** the CloudFormation replacement fails if the table name stays the same. Mitigated by the new name `Tasks-<stage>`.
 - **Rollback:** revert the merge and redeploy; CloudFormation creates the previous table again, empty. Data written to the new table is not carried back.
+
+## Amendments
+
+1. **The smoke test proves the consistency gain.** The first draft listed this as a post-deploy manual check under Verification but not in Scope. It is added to Scope and to the acceptance criteria so the check is repeatable and ships with the change. Found while preparing the verification.
