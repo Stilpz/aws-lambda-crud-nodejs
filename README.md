@@ -39,10 +39,13 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | This README | Setup, authentication, API reference, consuming the API, troubleshooting |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable API contract (OpenAPI 3.0.3). Import it into Postman, Insomnia or a client generator |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
+| [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md) | Versioning and deprecation policy: what a client can rely on and what counts as a breaking change |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release, with upgrade notes |
+| [`docs/decisions/`](docs/decisions/0002-frontend-repository-layout.md) | Decision records, including where the React frontend will live (`web/` in this repository) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
 | [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
 | [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |
-| [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication and per-user isolation |
+| [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication, per-user isolation and CORS |
 
 ## Architecture
 
@@ -62,13 +65,15 @@ Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda functio
 | Request handling | [middy](https://middy.js.org/): JSON body parsing, JSON Schema validation (Ajv) and error handling |
 | SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
 
-The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table and its indexes.
+The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table and its indexes.
 
 ## Project Structure
 
 ```
 .
-├── serverless.yml      # Functions, HTTP routes, authorizer, IAM role, DynamoDB table and Cognito resources
+├── serverless.yml      # Service, provider (authorizer, IAM role, environment) and the includes below
+├── functions/          # One file per Lambda function: handler and HTTP route
+├── resources/          # table.yml (DynamoDB) and auth.yml (Cognito user pool, app client, stack outputs)
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
 ├── CONTRIBUTING.md     # Contribution guide for forks
@@ -78,7 +83,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)
 │   └── ARCHITECTURE.md # Design, findings and roadmap
 ├── scripts/
-│   └── smoke.sh        # Post-deploy authentication and isolation check
+│   └── smoke.sh        # Post-deploy authentication, isolation and CORS check
 ├── .github/            # CI workflow and pull request template
 ├── src/
 │   ├── handlers/       # HTTP adapter: one Lambda handler per route, plus its helpers
@@ -134,6 +139,7 @@ The output lists the base URL of your API, similar to `https://xxxxxxxxxx.execut
 | `org` | top of `serverless.yml` | Replace with your own Serverless Framework org, or remove the line if you do not use one. |
 | `service` | `serverless.yml` | Optional. Rename it to change the CloudFormation stack and resource names. |
 | `provider.region` | `serverless.yml` | Change if you want another AWS region. |
+| `stages.<stage>.params.webOrigins` | `serverless.yml` | The origins that may call the API from a browser, per stage. Replace the `example.com` placeholders of `staging` and `prod` with your frontend domains. |
 
 The table, the user pool and their ARNs are built from the stage and the stack, so nothing else is tied to an account. Handlers read the table name from the `TABLE_NAME` environment variable that `serverless.yml` sets.
 
@@ -192,6 +198,8 @@ curl -H "Authorization: Bearer $TOKEN" $API_URL/tasks
 Tokens expire after one hour by default. Repeat step 3 to get a new one. Keep the `$TOKEN` variable in the same terminal session where you run the `curl` examples below.
 
 ## API Reference
+
+What a client can rely on, what counts as a breaking change and how changes are deprecated are defined in the [API versioning policy](docs/API_VERSIONING.md); releases are listed in the [changelog](CHANGELOG.md).
 
 All request and response bodies are JSON. Error responses have the shape `{ "message": "..." }`. Except for `GET /`, every endpoint needs the `Authorization` header described in [Authentication](#authentication), and answers `401` when it is missing or invalid. A task can only be read, changed or deleted by the user who created it: asking for another user's task returns `404 Task not found`, the same answer as for a task that does not exist.
 
@@ -421,6 +429,31 @@ await api(`/tasks/${task.id}`, { token, method: "DELETE" });
 - Do not retry `4xx` responses other than a single retry after refreshing a `401`. `5xx` responses are safe to retry for `GET` and `DELETE`; a retried `POST` can create a duplicate task because the API has no idempotency key.
 - The contract in [`docs/openapi.yaml`](docs/openapi.yaml) can generate typed clients, for example with `npx @openapitools/openapi-generator-cli`.
 
+### Calling the API from a browser (CORS)
+
+A browser app on another origin can call the API only from an origin the stage allows. API Gateway answers the preflight `OPTIONS` request itself, so it needs no token, and adds the CORS headers to the real responses. The policy lives in `provider.httpApi.cors` of `serverless.yml`:
+
+| Setting | Value |
+| --- | --- |
+| Allowed origins | The `webOrigins` list of the stage (`stages.<stage>.params.webOrigins`). `dev` and any stage that is not listed allow only `http://localhost:5173`; `staging` and `prod` list their own `https` origins. There is no wildcard |
+| Allowed headers | `Authorization`, `Content-Type` |
+| Allowed methods | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` |
+| Exposed response headers | `Deprecation`, `Sunset` (the [deprecation signals](docs/API_VERSIONING.md#4-deprecation-and-removal) a browser client can read) |
+| Credentials | Not allowed. The token travels in the `Authorization` header, not in a cookie |
+| Preflight cache | 3600 seconds |
+
+To allow another origin, add it to the stage's `webOrigins` list (an `https` origin, or `http://localhost:<port>` in the `default` stage only) and deploy; `npm test` rejects a wildcard, an `http` origin outside local development and a missing header. API Gateway ignores CORS headers set by a function once this configuration exists, so the handlers set none.
+
+Check a deployed stage with `curl` (replace the origin with an allowed one):
+
+```bash
+curl -si -X OPTIONS $API_URL/tasks -H "Origin: http://localhost:5173" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: authorization,content-type" | grep -i "^access-control"
+```
+
+The answer repeats the allowed origin exactly; an origin that is not on the list gets no `Access-Control-Allow-Origin` header. `scripts/smoke.sh` runs these checks (`CORS_ORIGIN` selects the origin) and prints whether the `401` that API Gateway returns for a missing token also carries the header: without it, a browser reports an expired token as a network error instead of a `401`, so a frontend should treat an opaque failure on an authenticated call as a possible expired session.
+
 ## Error Model
 
 Errors from the functions have the shape `{ "message": "..." }`. Validation errors (`400` on `POST` and `PUT`) add the failing fields:
@@ -483,17 +516,27 @@ To add an endpoint:
 
 1. Add a use case in `src/application/`: a factory `makeXxx({ taskRepository, ... })` that returns an async function taking the caller as `ownerId`. Wire it in `src/container.js`. If it needs new persistence, extend the `TaskRepository` port and `DynamoTaskRepository` first.
 2. Add a handler in `src/handlers/`, exporting an async function that returns `{ statusCode, body }`. For a handler that reads a JSON body, wrap it with `withJsonBody` from `src/handlers/middleware.js` and a schema from `src/handlers/schemas.js`. Read the caller with `getOwnerId` from `src/handlers/auth.js`.
-3. Register it under `functions` in `serverless.yml` (handler `src/handlers/<file>.<export>`) with its `httpApi` path and method, and the `cognitoAuthorizer` authorizer unless the route is meant to be public.
+3. Register it in a new file `functions/<name>.yml` (handler `src/handlers/<file>.<export>`) with its `httpApi` path and method, and the `cognitoAuthorizer` authorizer unless the route is meant to be public, then add one `${file(./functions/<name>.yml)}` line under `functions` in `serverless.yml`.
 4. Add tests, then deploy and try it.
 
 ## Testing and Linting
 
 ```bash
-npm test        # Vitest unit tests; DynamoDB is mocked
-npm run lint    # ESLint
+npm test                   # Vitest unit tests; DynamoDB is mocked
+npm run test:coverage      # the same tests, failing below the coverage thresholds in vitest.config.js
+npm run lint               # ESLint
+npm run lint:api           # OpenAPI lint of docs/openapi.yaml
+npm run audit:prod         # npm audit of the runtime dependencies (high and critical)
 ```
 
-CI runs both on every push and pull request for the four long-lived branches.
+CI runs these on every push and pull request for the four long-lived branches (the audit also runs weekly). It also validates the CloudFormation resources of `serverless.yml` (`serverless print` plus `cfn-lint`, which needs the `SERVERLESS_ACCESS_KEY` repository secret and is skipped without it) and runs the integration tests described next.
+
+`DynamoTaskRepository` is also tested against a real DynamoDB Local, with the same contract suite (`tests/taskRepositoryContract.js`) that the in-memory test double passes. These tests never reach AWS: they take their endpoint only from `DYNAMODB_ENDPOINT` and refuse an `amazonaws.com` endpoint.
+
+```bash
+docker run -d --rm -p 8000:8000 amazon/dynamodb-local:3.3.1
+DYNAMODB_ENDPOINT=http://localhost:8000 npm run test:integration
+```
 
 The unit tests mock DynamoDB, so they cannot prove that the authorizer, the ownership checks and the index work together. After a deploy, run the smoke test, which creates two throwaway users, checks authentication and isolation end to end, and deletes what it created:
 
@@ -524,9 +567,8 @@ Upgrading from a version that used the table `TaskTable-<stage>` replaces it: th
 This is a learning-oriented project, so it leaves out several things a production service would need:
 
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
-- **No CORS configuration.** Browsers on another origin cannot call the API yet. Add `@middy/http-cors` or an `httpApi.cors` setting when a frontend needs it.
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
-- **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility.
+- **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility. Its deprecation will follow the [deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal).
 - **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.
 - **Local invocation needs hand-written authorizer claims** and still uses the deployed table.
 
@@ -580,7 +622,7 @@ feature branch ──PR──▶ development ──PR──▶ staging ──PR�
 - Promote a change by opening a pull request from one branch to the next one. Use a merge commit rather than squash, so the branches keep the same history and do not diverge.
 - After a release is live in `production`, open a pull request from `production` to `main`. `main` only receives code that has already been released, so it stays unaltered.
 - For an urgent fix, branch from `production`, open a pull request back to `production`, and then merge the fix into `staging` and `development` so it is not lost in the next promotion.
-- CI (lint and tests) runs on pushes and pull requests for all four branches. Deployments are manual.
+- CI (lint, coverage, OpenAPI lint, dependency audit, template validation and integration tests) runs on pushes and pull requests for all four branches. Deployments are manual.
 
 Recommended repository settings: make `development` the default branch so new pull requests target it, and protect all four branches by requiring a pull request, passing CI and disallowing force pushes and deletion.
 
