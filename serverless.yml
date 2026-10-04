@@ -69,3 +69,4 @@ functions:
 resources:
   - ${file(./resources/table.yml)}
   - ${file(./resources/auth.yml)}
+  - ${file(./resources/observability.yml)}
