@@ -67,5 +67,14 @@ jobs:
           aws-region: ${{ env.REGION }}
       - name: Deploy
         run: npx --yes serverless@${SERVERLESS_VERSION} deploy --stage "$STAGE"
+      # The smoke test checks CORS with an origin the stage allows. The list is defined once, in
+      # serverless.yml, so read the first allowed origin from there instead of repeating it here.
+      - name: Pick an allowed CORS origin for the smoke test
+        run: |
+          origin=$(npx --yes serverless@${SERVERLESS_VERSION} print --stage "$STAGE" --format json | node -e '
+            const config = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            process.stdout.write(config.provider.httpApi.cors.allowedOrigins[0]);
+          ')
+          echo "CORS_ORIGIN=$origin" >> "$GITHUB_ENV"
       - name: Smoke test
         run: bash scripts/smoke.sh
