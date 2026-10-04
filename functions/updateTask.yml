@@ -1,0 +1,8 @@
+updateTask:
+  handler: src/handlers/updateTask.updateTask
+  events:
+    - httpApi:
+        path: /tasks/{id}
+        method: put
+        authorizer:
+          name: cognitoAuthorizer

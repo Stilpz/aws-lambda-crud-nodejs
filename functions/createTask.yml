@@ -1,0 +1,8 @@
+createTask:
+  handler: src/handlers/addTask.addTask
+  events:
+    - httpApi:
+        path: /tasks
+        method: post
+        authorizer:
+          name: cognitoAuthorizer

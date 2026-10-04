@@ -41,17 +41,19 @@ If your change depends on another open pull request, say so in your description 
 - Start from the approved spec (or propose one in a pull request that adds only the spec) and stay inside its scope.
 - Keep the style of the file you edit (ES modules, and the indentation and quotes already used there; `npm run lint` enforces the rest).
 - Handlers read the caller with `getOwnerId` in `src/handlers/auth.js` and pass it to a use case; the table name comes from `process.env.TABLE_NAME` in the composition root (`src/container.js`). Every use case and repository call takes the caller as `ownerId`, and every query, update and delete must be scoped to it. See [Local Development](README.md#local-development) for how to add an endpoint.
-- If you add or change a route, status code or field, update [`docs/openapi.yaml`](docs/openapi.yaml) and the API tables in the README in the same pull request.
+- Frontend work will go in `web/` in this repository and follows the same spec, branch and commit rules; see the [decision record](docs/decisions/0002-frontend-repository-layout.md).
+- If you add or change a route, status code or field, update [`docs/openapi.yaml`](docs/openapi.yaml) and the API tables in the README in the same pull request. Say in the spec which class of change it is (breaking, non-breaking, fix or operational) following [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md), and add an entry under `Unreleased` in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## 4. Check it
 
 ```bash
 npm run lint
-npm test
-npx @redocly/cli lint docs/openapi.yaml   # when you touched the API contract
+npm run test:coverage                     # must stay above the thresholds in vitest.config.js
+npm run lint:api                          # when you touched the API contract
+npm run audit:prod                        # when you touched dependencies
 ```
 
-Add tests for new behavior. DynamoDB is mocked in `tests/helpers.js` (`mockDynamo`), so tests never reach AWS.
+Add tests for new behavior. DynamoDB is mocked in `tests/helpers.js` (`mockDynamo`), so tests never reach AWS. If you touched the repository, also run the integration tests against DynamoDB Local: `DYNAMODB_ENDPOINT=http://localhost:8000 npm run test:integration` (start it with `docker run -p 8000:8000 amazon/dynamodb-local:3.3.1`).
 
 Then check it against a real deployment in your **own** AWS account, using a personal stage so you do not collide with anyone:
 
@@ -89,7 +91,7 @@ git rebase development
 
 ## 7. Open the pull request
 
-Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint and tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
+Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint, coverage, OpenAPI lint, dependency audit, template validation and integration tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
 
 ## Reporting problems
 

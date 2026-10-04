@@ -4,11 +4,28 @@ org: stivencardona
 service: aws-lambda-crud-nodejs
 frameworkVersion: "4"
 
+# Values that differ by stage. "default" applies to every stage that is not listed, so staging, prod
+# and any other name get the stricter values; dev opts out. alarmEmail is never committed: pass it
+# at deploy time with --param="alarmEmail=<address>" (empty means no email subscription).
+stages:
+  default:
+    params:
+      logRetentionInDays: 90
+      logLevel: INFO
+      alarmEmail: ""
+  dev:
+    params:
+      logRetentionInDays: 7
+      logLevel: DEBUG
+
 provider:
   name: aws
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
+  tracing:
+    lambda: true
+  logRetentionInDays: ${param:logRetentionInDays}
   httpApi:
     authorizers:
       cognitoAuthorizer:
@@ -24,6 +41,10 @@ provider:
           - !Ref UserPoolClient
   environment:
     TABLE_NAME: !Ref TaskTable
+    STAGE: ${sls:stage}
+    POWERTOOLS_SERVICE_NAME: ${self:service}
+    POWERTOOLS_METRICS_NAMESPACE: TasksApi
+    POWERTOOLS_LOG_LEVEL: ${param:logLevel}
   iam:
     role:
       statements:
@@ -38,97 +59,14 @@ provider:
             - !GetAtt TaskTable.Arn
 
 functions:
-  hello:
-    handler: src/handlers/hello.hello
-    events:
-      - httpApi:
-          path: /
-          method: get
-  createTask:
-    handler: src/handlers/addTask.addTask
-    events:
-      - httpApi:
-          path: /tasks
-          method: post
-          authorizer:
-            name: cognitoAuthorizer
-  getTasks:
-    handler: src/handlers/getTasks.getTasks
-    events:
-      - httpApi:
-          path: /tasks
-          method: get
-          authorizer:
-            name: cognitoAuthorizer
-  getTask:
-    handler: src/handlers/getTask.getTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: get
-          authorizer:
-            name: cognitoAuthorizer
-  updateTask:
-    handler: src/handlers/updateTask.updateTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: put
-          authorizer:
-            name: cognitoAuthorizer
-  deleteTask:
-    handler: src/handlers/deleteTask.deleteTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: delete
-          authorizer:
-            name: cognitoAuthorizer
+  - ${file(./functions/hello.yml)}
+  - ${file(./functions/createTask.yml)}
+  - ${file(./functions/getTasks.yml)}
+  - ${file(./functions/getTask.yml)}
+  - ${file(./functions/updateTask.yml)}
+  - ${file(./functions/deleteTask.yml)}
 
 resources:
-  Resources:
-    TaskTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Tasks-${sls:stage}
-        BillingMode: PAY_PER_REQUEST
-        AttributeDefinitions:
-          - AttributeName: ownerId
-            AttributeType: S
-          - AttributeName: id
-            AttributeType: S
-        KeySchema:
-          - AttributeName: ownerId
-            KeyType: HASH
-          - AttributeName: id
-            KeyType: RANGE
-    UserPool:
-      Type: AWS::Cognito::UserPool
-      Properties:
-        UserPoolName: tasks-${sls:stage}
-        UsernameAttributes:
-          - email
-        AutoVerifiedAttributes:
-          - email
-        Policies:
-          PasswordPolicy:
-            MinimumLength: 8
-            RequireLowercase: true
-            RequireUppercase: true
-            RequireNumbers: true
-            RequireSymbols: false
-    UserPoolClient:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        ClientName: tasks-api-${sls:stage}
-        UserPoolId: !Ref UserPool
-        GenerateSecret: false
-        ExplicitAuthFlows:
-          - ALLOW_USER_PASSWORD_AUTH
-          - ALLOW_USER_SRP_AUTH
-          - ALLOW_REFRESH_TOKEN_AUTH
-  Outputs:
-    UserPoolId:
-      Value: !Ref UserPool
-    UserPoolClientId:
-      Value: !Ref UserPoolClient
+  - ${file(./resources/table.yml)}
+  - ${file(./resources/auth.yml)}
+  - ${file(./resources/observability.yml)}
