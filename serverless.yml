@@ -114,8 +114,11 @@ provider:
             - !Ref AWS::Region
             - ".amazonaws.com/"
             - !Ref UserPool
+        # An ID token carries the app client id in aud and an access token in client_id; both are
+        # matched against this list, so each client that signs users in must be listed.
         audience:
           - !Ref UserPoolClient
+          - !Ref SpaUserPoolClient
   environment:
     TABLE_NAME: !Ref TaskTable
     STAGE: ${sls:stage}
