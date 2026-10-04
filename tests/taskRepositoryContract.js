@@ -182,6 +182,17 @@ export const describeTaskRepositoryContract = (name, createRepository) => {
                     .toEqual({ ...task, title: "new", done: true });
             });
 
+            it("resolves the task as it is after the change", async () => {
+                const owner = newOwner();
+                const task = newTask(owner);
+                await repository.create(task);
+
+                const updated = await repository.update(owner, task.id, { title: "new", done: true, ownerId: "intruder" });
+
+                expect(updated).toEqual({ ...task, title: "new", done: true });
+                expect(updated).toEqual(await repository.findById(owner, task.id));
+            });
+
             it("leaves the fields it was not given as they were", async () => {
                 const owner = newOwner();
                 const task = newTask(owner);

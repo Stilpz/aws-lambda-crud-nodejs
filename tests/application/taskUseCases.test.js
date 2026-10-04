@@ -161,6 +161,14 @@ describe("updateTask", () => {
         });
     });
 
+    it("returns the task as it is after the change", async () => {
+        const created = await createTask({ ownerId: ALICE, title: "old", description: "keep" });
+
+        const updated = await updateTask({ ownerId: ALICE, id: created.id, changes: { done: true } });
+
+        expect(updated).toEqual({ ...created, done: true });
+    });
+
     it("never changes the id, the owner or the creation date", async () => {
         const created = await createTask({ ownerId: ALICE, title: "t" });
 
