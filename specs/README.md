@@ -51,6 +51,6 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0004](0004-standardize-error-responses.md) | Standardize error responses behind one boundary | Implemented |
 | [0005](0005-migrate-orphan-task-owners.md) | Migrate tasks that have no owner | Superseded by 0006 |
 | [0006](0006-redesign-task-table-keys.md) | Redesign the task table keys | Implemented |
-| [0018](0018-decide-frontend-repository-layout.md) | Decide where the frontend lives and how it ships | Approved |
+| [0018](0018-decide-frontend-repository-layout.md) | Decide where the frontend lives and how it ships | Implemented |
 
 Specs are written in English and are not translated: they are contracts, and one authoritative text avoids divergence.

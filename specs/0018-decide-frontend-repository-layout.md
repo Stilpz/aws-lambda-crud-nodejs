@@ -1,6 +1,6 @@
 # 0018: Decide where the frontend lives and how it ships
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `decide-frontend-repository-layout` (started from `development`)
 - **Roadmap step:** Frontend readiness track of [0000](0000-roadmap-to-layered-architecture.md), item "Frontend home"
 - **Pull request:** to be filled when opened
@@ -89,17 +89,18 @@ Decide, with a written comparison, where the React frontend lives and how it is 
 
 ## Acceptance criteria
 
-- [ ] The record exists at `docs/decisions/0002-frontend-repository-layout.md` with the sections Status, Context, Decision drivers, Options, Decision, Consequences and Revisit triggers.
-- [ ] It fixes the criteria and weights before scoring and compares L1, L2 and L3 against each criterion with one sentence of evidence per cell, naming the repository files each claim rests on (`package.json`, `serverless.yml`, `.github/workflows/ci.yml`, `AGENTS.md`).
-- [ ] It decides build tool, test runner, language and Node version, hosting and the per-stage layout, the three-step deploy order with how each step reads the others' outputs, the environment configuration mechanism, and the CI and branch consequences.
-- [ ] It states how the frontend consumes the typed client (spec 0014) and the hosted UI sign-in (spec 0015), including which token the API accepts given the authorizer audience in `serverless.yml`, and the client rules derived from spec 0017.
-- [ ] It states how the spec process, `AGENTS.md` and the English and Spanish documentation convention extend to `web/`.
-- [ ] It names the one packaging risk (`web/` in the Lambda artifact) and the acceptance check the scaffold spec must carry.
-- [ ] Every external fact lists its source and the date checked; the unverified ones listed in Context are either verified or labelled unverified.
-- [ ] It lists the follow-up specs with proposed branch names and at least three revisit triggers (for example a second maintainer or release cadence, a need for a custom domain, build time or CI cost).
-- [ ] Docs listed in Scope item 2 are updated; the Spanish references match their English files in headings, rows and code blocks.
-- [ ] No file under `src/`, `tests/`, `scripts/`, `.github/workflows/`, `serverless.yml`, `package.json` or `docs/openapi.yaml` changed, and no `web/` directory exists.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] The record exists at `docs/decisions/0002-frontend-repository-layout.md` with the sections Status, Context, Decision drivers, Options, Decision, Consequences and Revisit triggers.
+- [x] It fixes the criteria and weights before scoring and compares L1, L2 and L3 against each criterion with one sentence of evidence per cell, naming the repository files each claim rests on (`package.json`, `serverless.yml`, `.github/workflows/ci.yml`, `AGENTS.md`).
+- [x] It decides build tool, test runner, language and Node version, hosting and the per-stage layout, the three-step deploy order with how each step reads the others' outputs, the environment configuration mechanism, and the CI and branch consequences.
+- [x] It states how the frontend consumes the typed client (spec 0014) and the hosted UI sign-in (spec 0015), including which token the API accepts given the authorizer audience in `serverless.yml`, and the client rules derived from spec 0017.
+- [x] It states how the spec process, `AGENTS.md` and the English and Spanish documentation convention extend to `web/`.
+- [x] It names the one packaging risk (`web/` in the Lambda artifact) and the acceptance check the scaffold spec must carry.
+- [x] Every external fact lists its source and the date checked; the unverified ones listed in Context are either verified or labelled unverified.
+- [x] It lists the follow-up specs with proposed branch names and at least three revisit triggers (for example a second maintainer or release cadence, a need for a custom domain, build time or CI cost).
+- [x] Docs listed in Scope item 2 are updated.
+- [ ] The Spanish references match their English files in headings, rows and code blocks. (Untracked files, mirrored by the maintainer after this change.)
+- [x] No file under `src/`, `tests/`, `scripts/`, `.github/workflows/`, `serverless.yml`, `package.json` or `docs/openapi.yaml` changed, and no `web/` directory exists.
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 
