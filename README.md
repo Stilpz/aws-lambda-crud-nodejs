@@ -642,8 +642,29 @@ Running the workflow by hand (`workflow_dispatch`) from one of these branches re
 **One-time setup, done by hand by an administrator** (the pipeline cannot create the role it runs with, and nothing here is applied by a change to this repository):
 
 1. For each stage, create the role with [`infra/github-oidc.yml`](infra/github-oidc.yml), passing `Stage` as `dev`, `staging` or `prod` and `CreateOidcProvider=true` in exactly one of them (an account holds one provider for GitHub). The role trusts only this repository and the GitHub Environment named after the stage, and may manage only resources starting with `aws-lambda-crud-nodejs-<stage>`.
+   Run it with administrator credentials, once per stage. The first command also creates the provider; leave `CreateOidcProvider=false` everywhere if the account already has a GitHub provider. The stack names are yours to choose; `github-oidc-<stage>` is used here:
+
+   ```bash
+   aws cloudformation deploy --region us-west-2 --stack-name github-oidc-dev \
+     --template-file infra/github-oidc.yml --capabilities CAPABILITY_NAMED_IAM \
+     --parameter-overrides Stage=dev CreateOidcProvider=true
+
+   aws cloudformation deploy --region us-west-2 --stack-name github-oidc-staging \
+     --template-file infra/github-oidc.yml --capabilities CAPABILITY_NAMED_IAM \
+     --parameter-overrides Stage=staging
+
+   aws cloudformation deploy --region us-west-2 --stack-name github-oidc-prod \
+     --template-file infra/github-oidc.yml --capabilities CAPABILITY_NAMED_IAM \
+     --parameter-overrides Stage=prod
+   ```
 2. In the repository settings, create the Environments `dev`, `staging` and `prod`. Restrict each to its own branch, and give `prod` a required reviewer. Required reviewers need a public repository or a paid plan, and "prevent self-review" must stay off for a single maintainer.
-3. In each Environment, set the variable `AWS_ROLE_ARN` to the stack output `DeployRoleArn` of that stage, and the secret `SERVERLESS_ACCESS_KEY` to a key from the Serverless dashboard. A repository-level `SERVERLESS_ACCESS_KEY` secret is also what the CI template check uses.
+3. In each Environment, set the variable `AWS_ROLE_ARN` to the stack output `DeployRoleArn` of that stage, and the secret `SERVERLESS_ACCESS_KEY` to a key from the Serverless dashboard. A repository-level `SERVERLESS_ACCESS_KEY` secret is also what the CI template check uses. Read it with:
+
+   ```bash
+   aws cloudformation describe-stacks --region us-west-2 --stack-name github-oidc-dev \
+     --query "Stacks[0].Outputs[?OutputKey=='DeployRoleArn'].OutputValue" --output text
+   ```
+
 
 The deploy role cannot attach managed policies, create users or change the OIDC provider. The first deploy of a stage applies every change merged since the last manual deploy, including the table replacement described above, so confirm no stage holds data that matters before enabling it.
 
