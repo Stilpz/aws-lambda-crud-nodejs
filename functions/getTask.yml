@@ -1,0 +1,8 @@
+getTask:
+  handler: src/handlers/getTask.getTask
+  events:
+    - httpApi:
+        path: /tasks/{id}
+        method: get
+        authorizer:
+          name: cognitoAuthorizer

@@ -24,7 +24,7 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 | Identity | Cognito user pool `tasks-<stage>` and an app client without a secret |
 | Data | DynamoDB `Tasks-<stage>`, on-demand billing, partition key `ownerId`, sort key `id` (a time-sortable UUID version 7), no secondary index |
 | Request handling | middy: JSON body parser, Ajv JSON Schema validation, error-to-HTTP mapping |
-| Infrastructure as code | Serverless Framework v4, a single `serverless.yml` |
+| Infrastructure as code | Serverless Framework v4, `serverless.yml` (service and provider) including one file per function from `functions/` and the table and Cognito resources from `resources/` |
 | Delivery | CI runs lint and unit tests on the four long-lived branches; deploys are manual |
 
 ### Request lifecycle
@@ -138,7 +138,7 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 7 | `add-ci-quality-gates` | OpenAPI lint, coverage threshold, dependency audit, template validation, DynamoDB Local integration job | CI green on a pull request |
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy | Deploy to dev from CI |
 | 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, explicit CORS origins, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev | Template validation; deploy to staging |
-| 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files | `serverless print` output unchanged |
+| 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files. **Done**, [spec 0011](../specs/0011-split-serverless-config-files.md); implemented before steps 6 and 9 | `serverless print` output unchanged |
 | 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated | OpenAPI and tests |
 | 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live (its spec is still to be written) | Retried `POST` creates one task |
 | 12 | `evaluate-typescript-migration` | Decision record: JSDoc types checked with `tsc` (no TypeScript migration) and Serverless v4 kept, with SAM as the fallback. **Done**, [spec 0016](../specs/0016-evaluate-typescript-migration.md), [record](decisions/0001-typing-and-deployment-framework.md) | Decision record in `docs/decisions/` |
