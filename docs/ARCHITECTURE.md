@@ -120,10 +120,11 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy | Deploy to dev from CI |
 | 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, explicit CORS origins, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev | Template validation; deploy to staging |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files | `serverless print` output unchanged |
-| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated; optional idempotency key on `POST` | OpenAPI and tests |
+| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated | OpenAPI and tests |
+| 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live (its spec is still to be written) | Retried `POST` creates one task |
 | 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; and Serverless v4 (needs an account and org) versus SAM or CDK | Decision record in `docs/` |
 
-Suggested order: 1, 2, 4, 5 (data model), 6, 7, 8 (operations), then 9 to 12. Steps 1 to 3 are low risk and unblock the rest. Step 5 is the only breaking change: it needs a maintenance window and the migration from step 4.
+Suggested order, as amended in [spec 0000](../specs/0000-roadmap-to-layered-architecture.md): steps 1 to 5 are done. For the rest, first the work that touches no deployed infrastructure (step 7 and the decision records), then the config split (step 10), observability (step 6) and hardening (step 9), in that order because all three edit the same file, then the deployment pipeline (step 8), and finally CORS, the PATCH route, the typed client and the SPA client.
 
 ## 7. Open decisions
 
