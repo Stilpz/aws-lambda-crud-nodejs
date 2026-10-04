@@ -107,3 +107,4 @@ Target layers (spec 0000): `handlers → application (use cases) → domain`, wi
 - Spec process and template: `specs/README.md`, `specs/TEMPLATE.md`
 - Design, decisions and review findings: `docs/ARCHITECTURE.md`
 - Contributor workflow for forks: `CONTRIBUTING.md`
+- Where the frontend lives and how it ships: `docs/decisions/0002-frontend-repository-layout.md`

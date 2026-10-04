@@ -41,6 +41,7 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
 | [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md) | Versioning and deprecation policy: what a client can rely on and what counts as a breaking change |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release, with upgrade notes |
+| [`docs/decisions/`](docs/decisions/0002-frontend-repository-layout.md) | Decision records, including where the React frontend will live (`web/` in this repository) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
 | [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
 | [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |

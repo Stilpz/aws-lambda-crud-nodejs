@@ -53,5 +53,6 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0006](0006-redesign-task-table-keys.md) | Redesign the task table keys | Implemented |
 | [0016](0016-evaluate-typescript-migration.md) | Evaluate a TypeScript migration and the deployment framework | Implemented |
 | [0017](0017-define-api-versioning-policy.md) | Define the API versioning and deprecation policy | Implemented |
+| [0018](0018-decide-frontend-repository-layout.md) | Decide where the frontend lives and how it ships | Implemented |
 
 Specs are written in English and are not translated: they are contracts, and one authoritative text avoids divergence.

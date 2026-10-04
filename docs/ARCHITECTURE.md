@@ -104,6 +104,25 @@ Testing follows the layers: use cases run against an in-memory repository (fast,
 
 Scope boundary: this stays a single service. Splitting into services, a message bus or CQRS is not justified by the current size.
 
+### Frontend
+
+The React frontend will live in `web/` in this repository, self-contained and not an npm workspace, and is decided in [record 0002](decisions/0002-frontend-repository-layout.md) ([spec 0018](../specs/0018-decide-frontend-repository-layout.md)). It is not built yet.
+
+```
+Browser ──▶ CloudFront (OAC) ──▶ private S3 bucket          web stack, one per stage
+   │
+   └─ HTTPS + JWT ──▶ API Gateway (HTTP API) ──▶ Lambda ──▶ DynamoDB      API stack
+```
+
+| Concern | Choice |
+| --- | --- |
+| Location | `web/` with its own `package.json` and lockfile; the only shared artifact is `docs/openapi.yaml` |
+| Tooling | TypeScript, Vite, React, Vitest with Testing Library |
+| Hosting | Private S3 bucket and CloudFront with origin access control, one pair per stage, in a separate CloudFormation stack |
+| Deploy order | Web infrastructure stack, then API stack (CORS origins and callback URLs), then web content |
+| Configuration | Build-time `VITE_*` values per stage taken from stack outputs; none is a secret |
+| CI | A second `web` job in `ci.yml`; `lint-and-test` unchanged |
+
 ## 6. Roadmap
 
 The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architecture.md); this table is a summary. Every step is delivered under its own approved spec in [`specs/`](../specs/README.md), which fixes its scope, acceptance criteria and commit plan, and a change that is not in its spec is drift. Each step is its own branch, started from `development`, with its own pull request to `development` and small atomic commits.
