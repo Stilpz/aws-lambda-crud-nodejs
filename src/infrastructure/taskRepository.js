@@ -1,4 +1,4 @@
-import { dynamoDb } from "../db.js";
+import { dynamoDb } from "./dynamoClient.js";
 import { DynamoTaskRepository } from "./dynamoTaskRepository.js";
 
 // Composition root: the one place that decides which TaskRepository implementation is used.
