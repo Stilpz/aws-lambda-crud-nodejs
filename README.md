@@ -41,7 +41,7 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
 | [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
-| [`CLAUDE.md`](CLAUDE.md) and [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |
+| [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |
 | [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication and per-user isolation |
 
 ## Architecture
@@ -72,8 +72,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
 ├── CONTRIBUTING.md     # Contribution guide for forks
-├── CLAUDE.md           # Working rules for agents and contributors
-├── AGENTS.md           # Pointer to CLAUDE.md for other agents
+├── AGENTS.md           # Working rules for agents and contributors
 ├── specs/              # Change contracts: process, template, roadmap and one spec per change
 ├── docs/
 │   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)

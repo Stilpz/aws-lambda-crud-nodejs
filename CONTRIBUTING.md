@@ -4,7 +4,7 @@ Thanks for helping improve this project. This guide covers the whole path of a c
 
 ## Ground rules
 
-- **Every change needs a spec.** Before writing code, a spec in [`specs/`](specs/README.md) describes the scope and acceptance criteria and is approved by the maintainer. Implement exactly what it says; new ideas become a new spec. Typo and documentation-only fixes are exempt. [`CLAUDE.md`](CLAUDE.md) holds the full working rules.
+- **Every change needs a spec.** Before writing code, a spec in [`specs/`](specs/README.md) describes the scope and acceptance criteria and is approved by the maintainer. Implement exactly what it says; new ideas become a new spec. Typo and documentation-only fixes are exempt. [`AGENTS.md`](AGENTS.md) holds the full working rules.
 - Every pull request targets `development`, never `main`, `staging` or `production`. See [Branching and Release Workflow](README.md#branching-and-release-workflow).
 - Work branches start from `development`. Names are lowercase, use hyphens, have 3 to 5 words, contain no spaces, accents or special characters, and do not end with a hyphen, for example `add-task-pagination`.
 - One logical change per branch and per commit. Unrelated fixes go in separate pull requests.
