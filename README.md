@@ -404,7 +404,7 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" $API_URL/tasks/0b9f5c1e-6c2a-4f
 ### The typical flow
 
 1. The user signs in with Cognito (with an SDK such as AWS Amplify or `amazon-cognito-identity-js`, or with the AWS CLI while testing) and gets an ID token, an access token and a refresh token.
-2. The client sends the ID token in `Authorization: Bearer <token>` with every request.
+2. The client sends a token in `Authorization: Bearer <token>` with every request: the ID token in the examples below, and the access token for a browser app (see [Sign-in for a browser app](#sign-in-for-a-browser-app)).
 3. When a request returns `401`, the token has most likely expired (one hour by default). The client exchanges the refresh token for a new one and retries once.
 4. If the refresh also fails, the user must sign in again.
 
