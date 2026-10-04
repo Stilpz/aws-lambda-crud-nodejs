@@ -1,6 +1,6 @@
 # 0010: Harden production resources, stage-aware
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `harden-production-resources` (started from `development`)
 - **Roadmap step:** 9 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
