@@ -1,6 +1,6 @@
 # 0014: Generate a typed API client from the contract
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `generate-typed-api-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Typed client from the contract" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
