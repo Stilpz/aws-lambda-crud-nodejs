@@ -1,6 +1,6 @@
 # 0005: Migrate tasks that have no owner
 
-- **Status:** Implemented
+- **Status:** Superseded by [0006](0006-redesign-task-table-keys.md)
 - **Branch:** `migrate-orphan-task-owners`, stacked on `standardize-error-responses` (PR #21) because both edit the specs index and the architecture roadmap table; merge #21 first
 - **Roadmap step:** 4 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** [#22](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/22)

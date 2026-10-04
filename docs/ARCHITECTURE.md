@@ -22,7 +22,7 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 | Compute | One Node.js 24 (`arm64`, ES modules) Lambda per route |
 | API | API Gateway HTTP API with a Cognito JWT authorizer on every route except `GET /` |
 | Identity | Cognito user pool `tasks-<stage>` and an app client without a secret |
-| Data | DynamoDB `TaskTable-<stage>`, on-demand billing, partition key `id`, GSI `ownerId-createdAt-index` |
+| Data | DynamoDB `Tasks-<stage>`, on-demand billing, partition key `ownerId`, sort key `id` (a time-sortable UUID version 7), no secondary index |
 | Request handling | middy: JSON body parser, Ajv JSON Schema validation, error-to-HTTP mapping |
 | Infrastructure as code | Serverless Framework v4, a single `serverless.yml` |
 | Delivery | CI runs lint and unit tests on the four long-lived branches; deploys are manual |
@@ -43,10 +43,10 @@ All of these live in `DynamoTaskRepository` (`src/infrastructure/dynamoTaskRepos
 | Operation | DynamoDB call | How ownership is enforced |
 | --- | --- | --- |
 | Create | `PutItem` with `attribute_not_exists(id)` | `ownerId` is set from the token |
-| List | `Query` on `ownerId-createdAt-index` | The key condition is the caller's `ownerId`; the cursor's owner is rebuilt from the token |
-| Get | `GetItem` with `ConsistentRead` | The item is returned only if its `ownerId` matches, otherwise `404` |
-| Update | `UpdateItem` | Condition `attribute_exists(id) AND ownerId = :ownerId`; failure is `404` |
-| Delete | `DeleteItem` | Same condition as update |
+| List | `Query` on the table with a consistent read | The partition key is the caller's `ownerId`; the cursor holds only the id and its owner is rebuilt from the token |
+| Get | `GetItem` with `ConsistentRead` | The key includes the caller's `ownerId`, so another user's task is never addressed; absent means `404` |
+| Update | `UpdateItem` | The key includes `ownerId`; condition `attribute_exists(id)`; failure is `404` |
+| Delete | `DeleteItem` | Same key and condition as update |
 
 ## 3. Decision log
 
@@ -55,7 +55,7 @@ All of these live in `DynamoTaskRepository` (`src/infrastructure/dynamoTaskRepos
 | One Lambda per route | Independent deploys, scaling and least-privilege per function; simple mental model | Some duplication of bootstrapping; more functions to observe |
 | HTTP API instead of REST API | Cheaper and lower latency, native JWT authorizer | No usage plans or API keys, no request validation at the gateway |
 | Cognito JWT authorizer at the gateway | Authentication is not application code; invalid calls never cost a function invocation | Coupled to Cognito's token format |
-| Ownership via `sub` stored on each item | Simple, no extra table | Not part of the key, so it needs a GSI to list (see findings) |
+| Ownership as the partition key | Ownership is the shape of every request, so it cannot be forgotten; listing is a consistent query; no index to maintain | Changing the key schema replaces the table (done once, in spec 0006) |
 | `404` for other users' tasks | Does not reveal which ids exist | Slightly harder to debug a wrong token |
 | Conditional writes for update and delete | Atomic ownership check, no read-then-write race | Condition failures need mapping to `404` |
 | ESM + AWS SDK v3 | Required by middy 7; smaller, modular SDK | Node 22+ needed |
@@ -69,11 +69,11 @@ Found while auditing the code against the documentation. Status is as of this do
 | # | Finding | Status |
 | --- | --- | --- |
 | F1 | `package.json` had no name, license or Node engine | Fixed |
-| F2 | The listing reads a GSI and is eventually consistent, undocumented | Documented; removed by roadmap step 5 |
+| F2 | The listing read a GSI and was eventually consistent, undocumented | Fixed: the table is keyed by owner and id and listing is a consistent query ([spec 0006](../specs/0006-redesign-task-table-keys.md)) |
 | F3 | No machine-readable API contract | Fixed (`openapi.yaml`) |
 | F4 | No contributor guide for forks | Fixed (`CONTRIBUTING.md`) |
 | F5 | README lacked consumer guidance, error model, troubleshooting and security notes | Fixed |
-| F6 | Tasks created before `ownerId` are unreachable | Fixed: `npm run migrate:owners` deletes them or assigns an owner, dry run by default ([spec 0005](../specs/0005-migrate-orphan-task-owners.md)) |
+| F6 | Tasks created before `ownerId` are unreachable | Fixed: the key redesign makes an ownerless item impossible and replaces the old table ([spec 0006](../specs/0006-redesign-task-table-keys.md)); the interim cleanup script of [spec 0005](../specs/0005-migrate-orphan-task-owners.md) was retired |
 | F7 | No end-to-end check of authentication and isolation | Fixed (`scripts/smoke.sh`); to be run in CI by step 8 |
 | F8 | `GET /tasks/{id}` used an eventually consistent read, so a task could be missing right after it was created | Fixed (`ConsistentRead`) |
 | F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)) and every use case requires `ownerId` ([spec 0003](../specs/0003-add-task-use-cases.md)). Error mapping now sits in one boundary ([spec 0004](../specs/0004-standardize-error-responses.md)) |
@@ -113,8 +113,8 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 1 | `extract-task-repository-port` | `TaskRepository` port and `DynamoTaskRepository`; handlers use it; behavior unchanged. **Done**, [spec 0001](../specs/0001-extract-task-repository-port.md) | Existing tests green; repository tests |
 | 2 | `add-task-use-cases` | `application/` use cases take `ownerId`; handlers become thin and move to `src/handlers/`. **Done**, [spec 0003](../specs/0003-add-task-use-cases.md) | Use-case tests with an in-memory repository |
 | 3 | `standardize-error-responses` | Typed errors and one error mapper; the `{ message }` shape is kept. **Done**, [spec 0004](../specs/0004-standardize-error-responses.md) | OpenAPI examples match responses |
-| 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership, or deletes them; explicit `--owner` or `--delete`, dry run by default. **Done**, [spec 0005](../specs/0005-migrate-orphan-task-owners.md) | Dry run on the dev table |
-| 5 | `redesign-task-table-keys` | New table keyed `PK = ownerId`, `SK = id` with a time-sortable id (such as ULID): consistent listing, no GSI, ownership implicit in the key. Side-by-side migration, then drop the old table | Smoke test; migration check. Breaking for cursors |
+| 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership, or deletes them. Built in [spec 0005](../specs/0005-migrate-orphan-task-owners.md), then **retired** by step 5, which makes the problem impossible | Dry run on the dev table |
+| 5 | `redesign-task-table-keys` | New table `Tasks-<stage>` keyed `ownerId` and `id` (UUID version 7): consistent listing, no GSI, ownership implicit in the key. The old table is replaced, not migrated. **Done**, [spec 0006](../specs/0006-redesign-task-table-keys.md) | Smoke test. Breaking for cursors and for the old table's data |
 | 6 | `add-observability-with-powertools` | Structured logs, correlation id, tracing, metrics, log retention, alarms on 5xx, throttles and latency | Logs and alarms visible in dev |
 | 7 | `add-ci-quality-gates` | OpenAPI lint, coverage threshold, dependency audit, template validation, DynamoDB Local integration job | CI green on a pull request |
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy | Deploy to dev from CI |
@@ -129,4 +129,4 @@ Suggested order: 1, 2, 4, 5 (data model), 6, 7, 8 (operations), then 9 to 12. St
 
 - Keep the `{ message }` error shape, or adopt RFC 9457 problem details (breaking for clients).
 - Whether to move away from Serverless Framework v4, which requires an account and an `org`, so forks without one cannot deploy as is.
-- Whether the listing should keep a GSI (cheap to keep, eventually consistent) or move to the key redesign of step 5.
+- Resolved: the listing no longer uses a GSI; it moved to the key redesign ([spec 0006](../specs/0006-redesign-task-table-keys.md)).

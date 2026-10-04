@@ -1,6 +1,6 @@
 # 0006: Redesign the task table keys
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Amendments:** 1 (see below)
 - **Branch:** `redesign-task-table-keys`, stacked on `migrate-orphan-task-owners` (step 4) because it edits the same specs index, roadmap table and README migration section; merge #21 and step 4 first
 - **Roadmap step:** 5 of [0000](0000-roadmap-to-layered-architecture.md)
@@ -75,17 +75,17 @@ Alternatives rejected: keeping the secondary index and making it consistent (not
 
 ## Acceptance criteria
 
-- [ ] The port file `src/domain/taskRepository.js`, the use cases in `src/application/` and the handlers in `src/handlers/` are unchanged.
-- [ ] Repository tests assert, for every operation, the new requests: item keys carry `ownerId` and `id`; listing queries the base table with `ownerId = :ownerId`, a consistent read, the limit and a cursor holding only `id`; update and delete are conditioned on `attribute_exists(id)`; create cannot overwrite.
-- [ ] No request refers to `IndexName` or `ownerId-createdAt-index` anywhere in `src`.
-- [ ] `generateUuidV7` is tested: valid UUID format, version 7 and RFC 4122 variant, embedded timestamp matches the clock, ids from a later millisecond sort after earlier ones, and ids are unique.
-- [ ] `createTask` receives the version 7 generator from the composition root.
-- [ ] `serverless.yml`: no `GlobalSecondaryIndexes`, key schema `ownerId` (HASH) and `id` (RANGE), table name `Tasks-${sls:stage}`, no `/index/*` in IAM.
-- [ ] The step 4 script, tests, npm script and README section are removed, and nothing references them.
-- [ ] The existing handler and use-case tests that assert behavior still pass; tests that assert the table design are updated to the new requests, and each such change is justified in its commit message.
-- [ ] `scripts/smoke.sh` checks that a freshly created task appears in the listing straight away, and `bash -n` accepts it.
-- [ ] The README, OpenAPI description, ARCHITECTURE and the Spanish references describe the new design and the upgrade notes, with matching structure in both languages.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] The port file `src/domain/taskRepository.js`, the use cases in `src/application/` and the handlers in `src/handlers/` are unchanged.
+- [x] Repository tests assert, for every operation, the new requests: item keys carry `ownerId` and `id`; listing queries the base table with `ownerId = :ownerId`, a consistent read, the limit and a cursor holding only `id`; update and delete are conditioned on `attribute_exists(id)`; create cannot overwrite.
+- [x] No request refers to `IndexName` or `ownerId-createdAt-index` anywhere in `src`.
+- [x] `generateUuidV7` is tested: valid UUID format, version 7 and RFC 4122 variant, embedded timestamp matches the clock, ids from a later millisecond sort after earlier ones, and ids are unique.
+- [x] `createTask` receives the version 7 generator from the composition root.
+- [x] `serverless.yml`: no `GlobalSecondaryIndexes`, key schema `ownerId` (HASH) and `id` (RANGE), table name `Tasks-${sls:stage}`, no `/index/*` in IAM.
+- [x] The step 4 script, tests, npm script and README section are removed, and nothing references them.
+- [x] The existing handler and use-case tests that assert behavior still pass; tests that assert the table design are updated to the new requests, and each such change is justified in its commit message.
+- [x] `scripts/smoke.sh` checks that a freshly created task appears in the listing straight away, and `bash -n` accepts it.
+- [x] The README, OpenAPI description, ARCHITECTURE and the Spanish references describe the new design and the upgrade notes, with matching structure in both languages.
+- [x] `npm run lint` and `npm test` pass.
 - [ ] The pull request links this spec and states it matches it.
 
 ## Verification
