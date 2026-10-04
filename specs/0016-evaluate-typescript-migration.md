@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `evaluate-typescript-migration` (started from `development`)
 - **Roadmap step:** 12 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#25](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/25), merged into `development`
 - **Supersedes / depends on:** none to start. The record names consequences for 0008 (deploy pipeline), 0010 (config split) and 0014 (typed client); each must be re-read if the decision differs from the recommendation. Numbers 0008, 0010 and 0014 are the ones pre-assigned to those roadmap steps and may still be Draft when this spec is reviewed.
 
 ## Context
@@ -128,7 +128,7 @@ These are recommendations; the record states the weights and the scores, and the
 - [x] The record names the decision for each part, the consequences for specs 0008, 0010 and 0014, and at least three observable revisit triggers.
 - [x] A migration sketch exists for the runner-up of each part.
 - [x] The "Open decisions" items in `docs/ARCHITECTURE.md` that this record resolves are replaced by a link to it, and roadmap row 12 is marked done in `docs/ARCHITECTURE.md` and in spec 0000 without changing order.
-- [ ] The Spanish references carry the same headings, rows and code blocks as the English files that changed. (Untracked files, mirrored by the maintainer after this change.)
+- [x] The Spanish references carry the same headings, rows and code blocks as the English files that changed. (Untracked files, mirrored by the maintainer after the merge.)
 - [x] No file under `src/`, `tests/`, `scripts/`, `.github/`, `serverless.yml` or `package.json` changed.
 - [x] `npm run lint` and `npm test` pass.
 

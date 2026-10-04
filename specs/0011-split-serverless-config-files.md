@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `split-serverless-config-files` (started from `development`)
 - **Roadmap step:** 10 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#28](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/28), merged into `development`
 - **Supersedes / depends on:** none. Behavior-preserving: it must work whether it lands before or after [0009](0009-add-observability-with-powertools.md) and [0010](0010-harden-production-resources.md); the recommended order is first (see Decisions), because both of those, and the CORS and SPA client specs, add to this file
 
 ## Context
