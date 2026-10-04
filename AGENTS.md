@@ -16,7 +16,9 @@ Commands:
 npm ci               # install
 npm run lint         # ESLint
 npm test             # Vitest; DynamoDB is mocked, nothing reaches AWS
-npx @redocly/cli lint docs/openapi.yaml   # when the API contract changes
+npm run test:coverage   # same tests, enforcing the coverage thresholds
+npm run lint:api     # when the API contract changes
+npm run test:integration   # repository against DynamoDB Local; needs DYNAMODB_ENDPOINT
 ```
 
 ## Spec-driven workflow (harness)
@@ -57,7 +59,8 @@ Target layers (spec 0000): `handlers → application (use cases) → domain`, wi
 
 - Test at the layer where the logic lives: use cases against an in-memory repository, the repository against a fake or local client, handlers only for HTTP mapping.
 - New behavior ships with tests in the same commit series. No test is deleted or weakened to make a change pass.
-- Tests never reach AWS. Use `tests/helpers.js`.
+- Tests never reach AWS. Use `tests/helpers.js`. Integration tests talk only to DynamoDB Local through `DYNAMODB_ENDPOINT`.
+- Every `TaskRepository` implementation passes the shared suite in `tests/taskRepositoryContract.js`.
 
 ## Git and delivery
 
