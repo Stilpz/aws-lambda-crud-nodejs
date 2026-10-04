@@ -4,12 +4,45 @@ org: stivencardona
 service: aws-lambda-crud-nodejs
 frameworkVersion: "4"
 
+# Origins that may call the API from a browser, one list per stage. A stage that is not listed
+# (a personal stage in a fork) gets the local development origin only. Replace the example.com
+# placeholders with the real frontend domains when they exist.
+stages:
+  default:
+    params:
+      webOrigins:
+        - http://localhost:5173
+  staging:
+    params:
+      webOrigins:
+        - https://staging.app.example.com
+  prod:
+    params:
+      webOrigins:
+        - https://app.example.com
+
 provider:
   name: aws
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
   httpApi:
+    cors:
+      allowedOrigins: ${param:webOrigins}
+      allowedHeaders:
+        - Authorization
+        - Content-Type
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      exposedResponseHeaders:
+        - Deprecation
+        - Sunset
+      maxAge: 3600
     authorizers:
       cognitoAuthorizer:
         type: jwt
