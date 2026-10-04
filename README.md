@@ -67,7 +67,7 @@ Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda functio
 | SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
 | Observability | [Powertools for AWS Lambda](https://docs.powertools.aws.dev/lambda/typescript/latest/): JSON logs with a correlation id, X-Ray traces, a cold start metric, log retention and CloudWatch alarms |
 
-The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table and its indexes.
+The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table.
 
 ## Project Structure
 
@@ -585,7 +585,7 @@ This is a learning-oriented project, so it leaves out several things a productio
 - **`USER_PASSWORD_AUTH` is convenient for testing and scripts**, but it sends the password to Cognito from your code. For real applications prefer the SRP flow of a Cognito SDK, or the hosted UI with PKCE.
 - **`admin-create-user` and `admin-set-user-password` skip email verification.** Use them for tests only.
 - **Everything is HTTPS.** API Gateway does not serve plain HTTP.
-- **The Lambda role is least-privilege**: five DynamoDB actions on one table and its indexes, nothing else.
+- **The Lambda role is least-privilege**: five DynamoDB actions on one table, nothing else.
 - **Each stage has its own user pool**, so a token from `dev` is rejected by `prod`.
 - Report a vulnerability privately to the maintainer instead of opening a public issue.
 

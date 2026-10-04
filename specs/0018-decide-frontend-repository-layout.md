@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `decide-frontend-repository-layout` (started from `development`)
 - **Roadmap step:** Frontend readiness track of [0000](0000-roadmap-to-layered-architecture.md), item "Frontend home"
-- **Pull request:** to be filled when opened
+- **Pull request:** [#27](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/27), merged into `development`
 - **Supersedes / depends on:** none to start. The record must be consistent with spec 0014 (typed client from `docs/openapi.yaml`), spec 0015 (SPA Cognito app client with the hosted UI and PKCE), the deploy pipeline of roadmap step 8 (spec 0008), the CORS item (`add-explicit-cors-origins`) and spec 0017 (versioning policy). It does not need any of them merged; where it assumes something from them it says so. It shares the `docs/decisions/` folder with spec 0016 (see Decisions to confirm).
 
 ## Context
@@ -98,7 +98,7 @@ Decide, with a written comparison, where the React frontend lives and how it is 
 - [x] Every external fact lists its source and the date checked; the unverified ones listed in Context are either verified or labelled unverified.
 - [x] It lists the follow-up specs with proposed branch names and at least three revisit triggers (for example a second maintainer or release cadence, a need for a custom domain, build time or CI cost).
 - [x] Docs listed in Scope item 2 are updated.
-- [ ] The Spanish references match their English files in headings, rows and code blocks. (Untracked files, mirrored by the maintainer after this change.)
+- [x] The Spanish references match their English files in headings, rows and code blocks. (Untracked files, mirrored by the maintainer after the merge.)
 - [x] No file under `src/`, `tests/`, `scripts/`, `.github/workflows/`, `serverless.yml`, `package.json` or `docs/openapi.yaml` changed, and no `web/` directory exists.
 - [x] `npm run lint` and `npm test` pass.
 
