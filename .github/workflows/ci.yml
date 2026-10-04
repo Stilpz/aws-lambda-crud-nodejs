@@ -76,8 +76,24 @@ jobs:
         run: |
           node -e '
             const config = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-            const { Resources, Outputs } = config.resources;
-            console.log(JSON.stringify({ AWSTemplateFormatVersion: "2010-09-09", Resources, Outputs }));
+            const { Resources, Outputs, Conditions } = config.resources;
+            // Some resources (the alarms) refer to resources the framework generates, the HTTP API
+            // and the Lambda functions, which are not in this fragment. A placeholder with the
+            // same logical id keeps cfn-lint from reporting the reference as unresolved.
+            const referenced = new Set();
+            const collect = (value) => {
+              if (Array.isArray(value)) return value.forEach(collect);
+              if (!value || typeof value !== "object") return;
+              if (typeof value.Ref === "string") referenced.add(value.Ref);
+              Object.values(value).forEach(collect);
+            };
+            collect({ Resources, Outputs });
+            for (const id of referenced) {
+              if (!id.startsWith("AWS::") && !(id in Resources)) {
+                Resources[id] = { Type: "AWS::CloudFormation::WaitConditionHandle" };
+              }
+            }
+            console.log(JSON.stringify({ AWSTemplateFormatVersion: "2010-09-09", Conditions, Resources, Outputs }));
           ' "$RUNNER_TEMP/serverless.json" > "$RUNNER_TEMP/resources.json"
       - name: Lint the CloudFormation resources
         if: env.SERVERLESS_ACCESS_KEY != ''
