@@ -3,7 +3,7 @@
 #
 # Creates two throwaway Cognito users, runs the checks, then deletes the users and the task it
 # created. Needs the AWS CLI (with credentials allowed to create users and sign them in through the
-# admin API), curl and node on the PATH. Works in every stage.
+# admin API and to describe user pool clients), curl and node on the PATH. Works in every stage.
 #
 #   STAGE=dev REGION=us-west-2 ./scripts/smoke.sh
 #
@@ -99,6 +99,50 @@ json=(-H "Content-Type: application/json")
 status 200 "GET / is public" "$API_URL/"
 status 401 "GET /tasks without a token is rejected" "$API_URL/tasks"
 status 401 "GET /tasks with a garbage token is rejected" -H "Authorization: Bearer not-a-token" "$API_URL/tasks"
+
+# Browser sign-in (read-only): the SPA client must be public, use the authorization code flow only and
+# allow no password flow, and the hosted sign-in must accept its registered callback and refuse others.
+SPA_CLIENT_ID="$(stack_output SpaClientId)"
+HOSTED_UI="$(stack_output HostedUiBaseUrl)"
+if [[ -z "$SPA_CLIENT_ID" || "$SPA_CLIENT_ID" == "None" || -z "$HOSTED_UI" || "$HOSTED_UI" == "None" ]]; then
+  echo "FAIL the stack has no SpaClientId or HostedUiBaseUrl output"
+  failures=$((failures + 1))
+else
+  spa_client="$(aws cognito-idp describe-user-pool-client --region "$REGION" --user-pool-id "$USER_POOL_ID" \
+    --client-id "$SPA_CLIENT_ID" --query UserPoolClient --output json)"
+  spa_problems="$(node -e '
+    const client = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    const problems = [];
+    if (client.ClientSecret) problems.push("has a client secret");
+    if (JSON.stringify(client.AllowedOAuthFlows) !== JSON.stringify(["code"])) problems.push("OAuth flows are not exactly code");
+    if (JSON.stringify([...client.AllowedOAuthScopes].sort()) !== JSON.stringify(["email", "openid"])) problems.push("scopes are not exactly openid and email");
+    if ((client.ExplicitAuthFlows ?? []).some((flow) => /PASSWORD|SRP/.test(flow))) problems.push("allows a password or SRP flow");
+    console.log(problems.join("; "));
+  ' <<< "$spa_client")"
+  if [[ -z "$spa_problems" ]]; then
+    echo "ok   the SPA client is public, code flow only, openid and email scopes, no password flow"
+  else
+    echo "FAIL the SPA client $spa_problems"
+    failures=$((failures + 1))
+  fi
+
+  spa_callback="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).CallbackURLs[0])' <<< "$spa_client")"
+  authorize_url="$HOSTED_UI/oauth2/authorize?response_type=code&client_id=$SPA_CLIENT_ID&scope=openid+email&code_challenge_method=S256&code_challenge=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  registered_redirect="$(curl -s -o /dev/null -w '%{redirect_url}' --get --data-urlencode "redirect_uri=$spa_callback" "$authorize_url")"
+  if [[ "$registered_redirect" == *"/login"* ]]; then
+    echo "ok   the hosted sign-in accepts the registered callback and redirects to its login page"
+  else
+    echo "FAIL the hosted sign-in did not redirect to /login for the registered callback ($spa_callback): '$registered_redirect'"
+    failures=$((failures + 1))
+  fi
+  foreign_redirect="$(curl -s -o /dev/null -w '%{redirect_url}' --get --data-urlencode "redirect_uri=https://evil.example/callback" "$authorize_url")"
+  if [[ "$foreign_redirect" == *"/login"* ]]; then
+    echo "FAIL the hosted sign-in accepted an unregistered redirect_uri"
+    failures=$((failures + 1))
+  else
+    echo "ok   the hosted sign-in refuses an unregistered redirect_uri"
+  fi
+fi
 
 # CORS: the preflight is answered by API Gateway, so it needs no token. The allowed origin must be
 # echoed back exactly (never "*") and an unknown origin must get no CORS header at all.
