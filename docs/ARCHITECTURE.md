@@ -33,10 +33,12 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 2. The route's Lambda receives the event with the verified claims in `requestContext.authorizer.jwt.claims`.
 3. `getOwnerId` (`src/auth.js`) reads `sub`. This is the only source of identity.
 4. For routes with a body, the middy stack parses it (`415` and `422` on failure) and validates it against a schema (`400`).
-5. The handler calls DynamoDB through the shared document client (`src/db.js`), always scoped to the caller.
+5. The handler calls the task repository (`src/infrastructure/taskRepository.js`), always scoped to the caller. `DynamoTaskRepository` is the only code that talks to DynamoDB, through the shared document client (`src/infrastructure/dynamoClient.js`).
 6. The handler returns `{ statusCode, body }`; unexpected errors are logged and answered with `500` and a fixed message.
 
 ### Access patterns and ownership
+
+All of these live in `DynamoTaskRepository` (`src/infrastructure/dynamoTaskRepository.js`), behind the `TaskRepository` port documented in `src/domain/taskRepository.js`. Handlers do not build DynamoDB requests.
 
 | Operation | DynamoDB call | How ownership is enforced |
 | --- | --- | --- |
@@ -74,7 +76,7 @@ Found while auditing the code against the documentation. Status is as of this do
 | F6 | Tasks created before `ownerId` are unreachable | Documented; roadmap step 4 provides a migration |
 | F7 | No end-to-end check of authentication and isolation | Fixed (`scripts/smoke.sh`); to be run in CI by step 8 |
 | F8 | `GET /tasks/{id}` used an eventually consistent read, so a task could be missing right after it was created | Fixed (`ConsistentRead`) |
-| F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Open; roadmap steps 1 and 2 |
+| F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Partly fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)). Open: use cases and thin handlers, roadmap step 2 |
 | F10 | No observability, deploy pipeline, production safeguards (retention, point-in-time recovery, deletion protection) or CORS | Open; roadmap steps 6 to 9 |
 | F11 | `PUT` has PATCH semantics; `POST` is not idempotent | Open; roadmap step 11 |
 
@@ -104,11 +106,11 @@ Scope boundary: this stays a single service. Splitting into services, a message 
 
 ## 6. Roadmap
 
-Each step is its own branch, started from `development`, with its own pull request to `development` and small atomic commits.
+The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architecture.md); this table is a summary. Every step is delivered under its own approved spec in [`specs/`](../specs/README.md), which fixes its scope, acceptance criteria and commit plan, and a change that is not in its spec is drift. Each step is its own branch, started from `development`, with its own pull request to `development` and small atomic commits.
 
 | Step | Branch | Outcome | How it is verified |
 | --- | --- | --- | --- |
-| 1 | `extract-task-repository-port` | `TaskRepository` port and `DynamoTaskRepository`; handlers use it; behavior unchanged | Existing tests green; repository tests |
+| 1 | `extract-task-repository-port` | `TaskRepository` port and `DynamoTaskRepository`; handlers use it; behavior unchanged. **Done**, [spec 0001](../specs/0001-extract-task-repository-port.md) | Existing tests green; repository tests |
 | 2 | `add-task-use-cases` | `application/` use cases take `ownerId`; handlers become thin; domain errors | Use-case tests with an in-memory repository |
 | 3 | `standardize-error-responses` | Typed errors and one error mapper; keep the `{ message }` shape unless RFC 9457 is chosen | OpenAPI examples match responses |
 | 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership; explicit `--owner`, dry run by default | Dry run on the dev table |
