@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `add-explicit-cors-origins` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "CORS with explicit origins" of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#33](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/33), merged into `development`
 - **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md), merged). Related to 0010 (hardening; the roadmap lists "explicit CORS origins" under step 9 as well, see Decision 5), 0011 (config split, merged: the `provider` block and the per-stage `stages:` parameters stay in the root `serverless.yml`, the CORS block belongs to `provider`), 0012 (`PATCH` and the `Deprecation`/`Sunset` headers) and 0015 (the SPA origin is also the Cognito callback origin).
 
 ## Context

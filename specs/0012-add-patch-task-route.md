@@ -4,7 +4,7 @@
 - **Branch:** `add-patch-task-route` (started from `development`)
 - **Roadmap step:** 11 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Amendments:** 1 (see the end of this spec)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#34](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/34), merged into `development`
 - **Supersedes / depends on:** builds on [0003](0003-add-task-use-cases.md) and [0004](0004-standardize-error-responses.md), and follows the deprecation process of [0017](0017-define-api-versioning-policy.md) (`docs/API_VERSIONING.md`); all merged. Built on the configuration split of [0011](0011-split-serverless-config-files.md) and on the CORS configuration of [0013](0013-add-explicit-cors-origins.md), which already allows `PATCH` and exposes `Deprecation` and `Sunset`. The idempotency key on `POST` left this step with the maintainer's approval (roadmap step 11b, spec number 0019). Interacts with 0010 (hardening: route throttling).
 
 ## Context

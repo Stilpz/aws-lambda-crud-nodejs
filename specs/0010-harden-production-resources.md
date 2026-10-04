@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `harden-production-resources` (started from `development`)
 - **Roadmap step:** 9 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#32](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/32), merged into `development`
 - **Supersedes / depends on:** builds on [0006](0006-redesign-task-table-keys.md) (the table it protects). Shares the `stages:` parameter block with [0009](0009-add-observability-with-powertools.md); whichever lands first creates the block, the other adds its params. Interacts with the CORS spec (0013) and the SPA app client spec (0015), see Design. Expected implementation order: after 0011 and 0009 (see the order decision in [0009](0009-add-observability-with-powertools.md))
 
 ## Context
