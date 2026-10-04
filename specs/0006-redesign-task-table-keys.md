@@ -4,7 +4,7 @@
 - **Amendments:** 1 (see below)
 - **Branch:** `redesign-task-table-keys`, stacked on `migrate-orphan-task-owners` (step 4) because it edits the same specs index, roadmap table and README migration section; merge #21 and step 4 first
 - **Roadmap step:** 5 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#23](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/23)
 - **Supersedes / depends on:** builds on [0001](0001-extract-task-repository-port.md); makes the script of [0005](0005-migrate-orphan-task-owners.md) obsolete (see Decisions)
 
 ## Context
@@ -86,7 +86,7 @@ Alternatives rejected: keeping the secondary index and making it consistent (not
 - [x] `scripts/smoke.sh` checks that a freshly created task appears in the listing straight away, and `bash -n` accepts it.
 - [x] The README, OpenAPI description, ARCHITECTURE and the Spanish references describe the new design and the upgrade notes, with matching structure in both languages.
 - [x] `npm run lint` and `npm test` pass.
-- [ ] The pull request links this spec and states it matches it.
+- [x] The pull request links this spec and states it matches it (#23).
 
 ## Verification
 
