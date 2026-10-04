@@ -1,6 +1,7 @@
 # 0000: Roadmap to a layered architecture and a React-ready API
 
 - **Status:** Approved
+- **Amendments:** 3 (see the end of this spec)
 - **Branch:** none (this spec governs the sequence; each step has its own spec and branch)
 - **Baseline:** release [`v1.0.0`](https://github.com/Stilpz/aws-lambda-crud-nodejs/releases/tag/v1.0.0), commit `65d1523`
 - **Supersedes / depends on:** none
@@ -48,10 +49,11 @@ Each step gets its own spec, written and approved before the work starts, number
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role; smoke test after each deploy |
 | 9 | `harden-production-resources` | Retention, point-in-time recovery, deletion protection, throttling, per-function IAM |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files |
-| 11 | `add-patch-task-route` | `PATCH /tasks/{id}`; `PUT` kept and deprecated; optional idempotency key on `POST` |
-| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; Serverless v4 versus SAM or CDK |
+| 11 | `add-patch-task-route` | `PATCH /tasks/{id}`; `PUT` kept and deprecated. The idempotency key moved to its own item below |
+| 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live. Spec to be written (number 0019) |
+| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; Serverless v4 versus SAM or CDK. Spec [0016](0016-evaluate-typescript-migration.md); record [`docs/decisions/0001-typing-and-deployment-framework.md`](../docs/decisions/0001-typing-and-deployment-framework.md) |
 
-Suggested order: 1, 2, 4, 5, then 6 to 8, then 9 to 12. Steps 1 to 3 are low risk and unblock the rest. Step 5 is the only breaking change and needs a maintenance window plus the migration from step 4.
+Suggested order, as amended: steps 1 to 5 are done. For the rest, first the work that touches no deployed infrastructure (step 7, the decision records of step 12 and of the versioning and layout items), then the config split (step 10), observability (step 6) and hardening (step 9), in that order because all three edit the same file, then the deployment pipeline (step 8), and finally CORS, the PATCH route, the typed client and the SPA client. Step 5 was the only breaking change.
 
 ## Frontend readiness track (React)
 
@@ -63,7 +65,7 @@ The frontend comes after the API is stable. These items prepare the ground; each
 | Typed client from the contract | `generate-typed-api-client` | Generate types and a client from `docs/openapi.yaml` (for example `openapi-typescript`), so the frontend cannot drift from the API |
 | Browser-safe sign-in | `add-spa-cognito-app-client` | A separate app client for the SPA using the hosted UI with authorization code and PKCE, with callback and logout URLs per stage. `USER_PASSWORD_AUTH` stays for scripts and tests only |
 | Contract stability policy | `define-api-versioning-policy` | Rules for what counts as breaking, how it is announced and deprecated. The OpenAPI file is the single source of truth |
-| Frontend home | `decide-frontend-repository-layout` | Decision record: a `web/` workspace in this repository or a separate repository, how it is built, tested and deployed (for example S3 and CloudFront), and how it consumes the generated client |
+| Frontend home | `decide-frontend-repository-layout` | Decision record: a `web/` workspace in this repository or a separate repository, how it is built, tested and deployed (for example S3 and CloudFront), and how it consumes the generated client. Spec [0018](0018-decide-frontend-repository-layout.md); record [`docs/decisions/0002-frontend-repository-layout.md`](../docs/decisions/0002-frontend-repository-layout.md) |
 
 Properties the API already offers to a React client and must keep: cursor pagination (fits infinite scroll), a stable error shape with per-field `errors`, ownership-scoped data, and a consistent single-task read.
 
@@ -82,3 +84,9 @@ Properties the API already offers to a React client and must keep: cursor pagina
 ## Change control
 
 Changing the order, adding or dropping a step requires amending this spec in its own commit, with the reason in the message, and re-approval by the maintainer.
+
+## Amendments
+
+1. **Order of steps 6, 9 and 10.** Steps 6, 9 and 10 all edit `serverless.yml`, and the frontend items edit it too. Splitting the file first (step 10) lets the others land in small files instead of conflicting. A prototype showed `serverless print` byte-identical before and after the split, so the order is safe. The maintainer approved the new order 10, 6, 9.
+2. **Idempotency key moved out of step 11.** It needs its own storage and retention rule, because key records cannot live in the task table without showing up in `GET /tasks`. It becomes item 11b with its own spec, and step 11 keeps only the `PATCH` route and the deprecation of `PUT`.
+3. **Step 4 superseded by step 5.** The key redesign makes a task without an owner impossible and replaces the old table, so the migration script of spec 0005 was retired and never merged. Spec 0005 stays as a record.
