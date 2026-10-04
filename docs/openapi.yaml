@@ -8,7 +8,10 @@ info:
 
     **Authentication.** Every operation except `GET /` needs a Cognito JWT in the
     `Authorization: Bearer <token>` header. API Gateway answers `401` before any function runs
-    when the token is missing, invalid or expired.
+    when the token is missing, invalid or expired. The token is an ID token or an access token
+    issued by either app client of the user pool (the script client or the browser client); a
+    browser app signs in with the authorization code flow and PKCE on the hosted sign-in and sends
+    its access token.
 
     **Ownership.** Each task belongs to the user whose JWT `sub` claim created it. A user can only
     read, change or delete their own tasks. Asking for another user's task returns `404`,
@@ -366,8 +369,10 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        A JWT issued by the Cognito user pool of the deployment (the ID token works). Tokens
-        expire after one hour by default.
+        A JWT issued by the Cognito user pool of the deployment to one of its app clients. Both the
+        ID token and the access token are accepted. Tokens of the script client expire after one
+        hour; tokens of the browser client expire after 60 minutes and are renewed with a refresh
+        token that lasts 7 days.
   parameters:
     TaskId:
       name: id

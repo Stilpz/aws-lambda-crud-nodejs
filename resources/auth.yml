@@ -40,8 +40,74 @@ Resources:
       # the client), the other stages allow only SRP and refresh. The admin flow needs AWS credentials
       # and is used by scripts/smoke.sh.
       ExplicitAuthFlows: ${param:authFlows}
+  # The hosted sign-in pages. A prefix domain is unique in the region across AWS accounts, so the
+  # prefix ends with the first eight characters of the stack GUID: stable for the life of the stack,
+  # different in every account, and without an account id in a public URL. Changing it replaces the
+  # domain.
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      ManagedLoginVersion: 1
+      Domain: !Join
+        - "-"
+        - - tasks
+          - ${sls:stage}
+          - !Select
+            - 0
+            - !Split
+              - "-"
+              - !Select
+                - 2
+                - !Split
+                  - "/"
+                  - !Ref AWS::StackId
+  # The browser app's client (spec 0015). Public (no secret), authorization code only and no password
+  # flow in any stage: the user types the password on a Cognito page. The existing client above stays
+  # as it is, for scripts. Cognito does not force PKCE on a public client, so the frontend must send
+  # code_challenge_method=S256.
+  SpaUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: tasks-spa-${sls:stage}
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - openid
+        - email
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs: ${param:spaCallbackUrls}
+      LogoutURLs: ${param:spaLogoutUrls}
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 7
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      RefreshTokenRotation:
+        Feature: ENABLED
+        RetryGracePeriodSeconds: 10
 Outputs:
   UserPoolId:
     Value: !Ref UserPool
   UserPoolClientId:
     Value: !Ref UserPoolClient
+  SpaClientId:
+    Value: !Ref SpaUserPoolClient
+  HostedUiBaseUrl:
+    Value: !Join
+      - ""
+      - - "https://"
+        - !Ref UserPoolDomain
+        - ".auth."
+        - !Ref AWS::Region
+        - ".amazoncognito.com"

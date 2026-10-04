@@ -19,6 +19,7 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - `PATCH /tasks/{id}`: the partial update, answering `200` with the updated task. It takes the same body and has the same errors as `PUT` ([spec 0012](specs/0012-add-patch-task-route.md)).
 
 - A typed client generated from the contract: `api-client/schema.d.ts` (TypeScript declarations from `docs/openapi.yaml`, with `openapi-typescript`) and `api-client/client.js` (`createApiClient`, over `openapi-fetch`), with `api:generate`, `api:check` and `api:typecheck` scripts that CI runs so the generated types cannot drift from the contract ([spec 0014](specs/0014-generate-typed-api-client.md)). Tooling only: no API change, and the folder is excluded from the Lambda packages.
+- A Cognito app client for browser apps with the hosted sign-in (user pool domain, authorization code flow with PKCE, scopes `openid` and `email`, no password flow, access and ID tokens of 60 minutes, a 7 day rotated refresh token), the stack outputs `SpaClientId` and `HostedUiBaseUrl`, per-stage callback and logout URLs (`spaCallbackUrls`, `spaLogoutUrls`), and `scripts/pkce-login.mjs` for a manual end-to-end check ([spec 0015](specs/0015-add-spa-cognito-app-client.md)). The JWT authorizer now also accepts tokens of this client. Compatibility class: **non-breaking** (the authorizer accepts more, nothing is removed); the existing client and its flows are unchanged. The deploy creates a new resource type, `AWS::Cognito::UserPoolDomain`, so the role that deploys needs permission for it.
 
 ### Changed
 
