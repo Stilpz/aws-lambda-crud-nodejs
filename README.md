@@ -28,7 +28,7 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 
 ## Overview
 
-This project exposes a small CRUD API over a single DynamoDB table, `TaskTable-<stage>`. Each endpoint is an independent Lambda function, so functions can be changed, deployed and scaled separately. The table uses on-demand billing (`PAY_PER_REQUEST`), so an idle deployment costs practically nothing.
+This project exposes a small CRUD API over a single DynamoDB table, `Tasks-<stage>`. Each endpoint is an independent Lambda function, so functions can be changed, deployed and scaled separately. The table uses on-demand billing (`PAY_PER_REQUEST`), so an idle deployment costs practically nothing.
 
 Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Each task stores the id of the user who created it, and every endpoint only reads or changes that user's tasks.
 
@@ -47,7 +47,7 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 ## Architecture
 
 ```
-Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda function ──▶ DynamoDB (TaskTable-<stage>)
+Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda function ──▶ DynamoDB (Tasks-<stage>)
                               │
                               └── JWT authorizer validates the token against the Cognito user pool
 ```
@@ -57,7 +57,7 @@ Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda functio
 | Runtime | Node.js 24 (`nodejs24.x`), `arm64`, ES modules |
 | Region | `us-west-2` |
 | Framework | Serverless Framework v4 |
-| Database | DynamoDB, partition key `id` (string), on-demand billing, plus a global secondary index on `ownerId` and `createdAt` |
+| Database | DynamoDB, partition key `ownerId` and sort key `id` (both strings), on-demand billing, no secondary index |
 | Authentication | Amazon Cognito user pool and app client, JWT authorizer on the HTTP API |
 | Request handling | [middy](https://middy.js.org/): JSON body parsing, JSON Schema validation (Ajv) and error handling |
 | SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
@@ -213,7 +213,7 @@ Requests must use `Content-Type: application/json`.
 | `title` | Required. Non-empty string. |
 | `description` | Optional string. Defaults to an empty string. |
 
-The server generates `id` (UUID v4) and `createdAt`, sets `ownerId` to the authenticated user and sets `done` to `false`.
+The server generates `id` (a time-sortable UUID, version 7) and `createdAt`, sets `ownerId` to the authenticated user and sets `done` to `false`.
 
 ```bash
 curl -X POST $API_URL/tasks \
@@ -444,24 +444,23 @@ Errors from the functions have the shape `{ "message": "..." }`. Validation erro
 
 ## Consistency Notes
 
-- `GET /tasks/{id}` uses a consistent read, so a task is readable immediately after it is created or updated.
-- `GET /tasks` reads a global secondary index, which is **eventually consistent**. A task created a moment ago can be missing from the list for a short time (usually well under a second). If your client lists right after a create, add the new task to its local list instead of re-reading, or retry.
+- Both `GET /tasks/{id}` and `GET /tasks` use consistent reads, so a task is readable and appears in the listing as soon as it is created or updated.
 - Updates and deletes are conditional writes and are always evaluated against the latest data.
 
 ## Data Model
 
-Items in `TaskTable-<stage>`:
+Items in `Tasks-<stage>`:
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
-| `id` | String | Partition key. UUID v4 generated on creation. |
-| `ownerId` | String | The `sub` claim of the user's JWT. Set on creation and never changed. |
+| `id` | String | Sort key. A time-sortable UUID (version 7) generated on creation, so the owner's tasks come back oldest first. |
+| `ownerId` | String | Partition key. The `sub` claim of the user's JWT. Set on creation and never changed. |
 | `title` | String | |
 | `description` | String | |
 | `createdAt` | String | ISO 8601 timestamp. |
 | `done` | Boolean | `false` on creation. |
 
-The global secondary index `ownerId-createdAt-index` (partition key `ownerId`, sort key `createdAt`, all attributes projected) serves `GET /tasks`, so listing reads only the caller's tasks instead of scanning the table.
+The table is keyed by owner and task id. Because the owner is part of the key, every request addresses the caller's own partition: another user's task cannot be matched, and `GET /tasks` is a consistent `Query` on the table, with no secondary index to maintain.
 
 ## Local Development
 
@@ -516,9 +515,9 @@ serverless remove                      # delete the whole stack
 
 `serverless remove` also deletes the task table, the Cognito user pool, and with them every task and user.
 
-Each stage has its own table, named `TaskTable-<stage>`, and its own user pool, named `tasks-<stage>`, so stages can share an AWS account and region without touching each other's data or users.
+Each stage has its own table, named `Tasks-<stage>`, and its own user pool, named `tasks-<stage>`, so stages can share an AWS account and region without touching each other's data or users.
 
-The first deploy that adds `ownerId-createdAt-index` to an existing table builds the index in the background. Tasks created before ownership was introduced have no `ownerId`, so they do not appear in listings and answer `404`. Delete or migrate them.
+Upgrading from a version that used the table `TaskTable-<stage>` replaces it: the deploy creates `Tasks-<stage>` with the new key and deletes the old table, **and the tasks in it are lost**. Copy them first if they matter; the project does not provide a migration for this. Pagination tokens issued before the change are rejected with `400`, and new tasks get version 7 UUIDs.
 
 ## Known Limitations
 
@@ -526,7 +525,6 @@ This is a learning-oriented project, so it leaves out several things a productio
 
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
 - **No CORS configuration.** Browsers on another origin cannot call the API yet. Add `@middy/http-cors` or an `httpApi.cors` setting when a frontend needs it.
-- **Tasks from before ownership have no owner** and are unreachable until deleted or migrated. See [Deployment and Cleanup](#deployment-and-cleanup).
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
 - **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility.
 - **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.
@@ -557,8 +555,7 @@ This is a learning-oriented project, so it leaves out several things a productio
 | `400` with an `errors` list | The body failed validation. Read each entry, for example `/body must have required property 'title'` |
 | `415 Unsupported Media Type` | Add `-H "Content-Type: application/json"` to `POST` and `PUT` |
 | `422 Invalid or malformed JSON` | The body is not valid JSON. In a Windows shell, quote the JSON with single quotes, or write it to a file and use `-d @file.json` |
-| `404 Task not found` on your own task | You are using another user's token, or the task was created before ownership was introduced and has no `ownerId` |
-| Empty list right after a create | `GET /tasks` is eventually consistent. Retry after a moment, or use `GET /tasks/{id}` |
+| `404 Task not found` on your own task | You are using another user's token, or the task was already deleted |
 | `500` | Read the logs: `serverless logs -f <function> --tail` (functions: `createTask`, `getTasks`, `getTask`, `updateTask`, `deleteTask`) |
 | `serverless deploy` asks you to log in | Serverless v4 needs `serverless login` or `SERVERLESS_ACCESS_KEY`, and a valid `org` in `serverless.yml` |
 | The deploy fails on the first run in a fork | Review [Configuration for Forks](#configuration-for-forks); the `org` value belongs to the original author |

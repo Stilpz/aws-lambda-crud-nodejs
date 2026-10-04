@@ -14,11 +14,11 @@ describe("updateTask", () => {
         expect(update).toHaveBeenCalledWith(
             expect.objectContaining({
                 TableName: "TaskTable-test",
-                Key: { id: "task-1" },
+                Key: { ownerId: "user-1", id: "task-1" },
                 UpdateExpression: "set #done = :done",
                 ExpressionAttributeNames: { "#done": "done" },
-                ExpressionAttributeValues: { ":done": true, ":ownerId": "user-1" },
-                ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
+                ExpressionAttributeValues: { ":done": true },
+                ConditionExpression: "attribute_exists(id)",
             }),
         );
     });
@@ -30,7 +30,7 @@ describe("updateTask", () => {
 
         const params = update.mock.calls[0][0];
         expect(params.UpdateExpression).toBe("set #done = :done, #title = :title");
-        expect(params.ExpressionAttributeValues).toEqual({ ":done": false, ":title": "New", ":ownerId": "user-1" });
+        expect(params.ExpressionAttributeValues).toEqual({ ":done": false, ":title": "New" });
     });
 
     it("accepts an empty description", async () => {

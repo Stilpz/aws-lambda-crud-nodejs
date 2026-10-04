@@ -15,7 +15,7 @@ describe("getTask", () => {
         expect(JSON.parse(response.body)).toEqual(task);
         expect(get).toHaveBeenCalledWith({
             TableName: "TaskTable-test",
-            Key: { id: "task-1" },
+            Key: { ownerId: "user-1", id: "task-1" },
             ConsistentRead: true,
         });
     });
@@ -29,13 +29,12 @@ describe("getTask", () => {
         expect(JSON.parse(response.body)).toEqual({ message: "Task not found" });
     });
 
-    it("returns 404 when the task belongs to another user", async () => {
-        mockDynamo("get", { result: { Item: { id: "task-1", ownerId: "someone-else", title: "secret" } } });
+    it("looks only in the caller's own partition", async () => {
+        const get = mockDynamo("get", { result: {} });
 
-        const response = await invoke();
+        await getTask({ requestContext: authContext("user-2"), pathParameters: { id: "task-1" } });
 
-        expect(response.statusCode).toBe(404);
-        expect(JSON.parse(response.body)).toEqual({ message: "Task not found" });
+        expect(get.mock.calls[0][0].Key).toEqual({ ownerId: "user-2", id: "task-1" });
     });
 
     it("returns 500 when DynamoDB fails", async () => {

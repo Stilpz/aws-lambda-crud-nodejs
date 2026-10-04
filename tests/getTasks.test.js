@@ -9,9 +9,9 @@ const invoke = (queryStringParameters, sub) =>
 
 const ownerQuery = {
     TableName: "TaskTable-test",
-    IndexName: "ownerId-createdAt-index",
     KeyConditionExpression: "ownerId = :ownerId",
     ExpressionAttributeValues: { ":ownerId": "user-1" },
+    ConsistentRead: true,
 };
 
 describe("getTasks", () => {
@@ -46,34 +46,35 @@ describe("getTasks", () => {
     it("passes the limit and the start key to DynamoDB", async () => {
         const query = mockDynamo("query", { result: { Items: [] } });
 
-        await invoke({ limit: "5", nextToken: tokenFor({ id: "task-1", createdAt: "2026-01-01T00:00:00.000Z" }) });
+        await invoke({ limit: "5", nextToken: tokenFor({ id: "task-1" }) });
 
         expect(query).toHaveBeenCalledWith({
             ...ownerQuery,
             Limit: 5,
-            ExclusiveStartKey: { id: "task-1", createdAt: "2026-01-01T00:00:00.000Z", ownerId: "user-1" },
+            ExclusiveStartKey: { ownerId: "user-1", id: "task-1" },
         });
     });
 
-    it("ignores an owner smuggled inside the token", async () => {
+    it("rejects a token that tries to smuggle in an owner, without querying", async () => {
         const query = mockDynamo("query", { result: { Items: [] } });
 
-        await invoke({ nextToken: tokenFor({ id: "t", createdAt: "c", ownerId: "victim" }) });
+        const response = await invoke({ nextToken: tokenFor({ id: "t", ownerId: "victim" }) });
 
-        expect(query.mock.calls[0][0].ExclusiveStartKey.ownerId).toBe("user-1");
+        expect(response.statusCode).toBe(400);
+        expect(query).not.toHaveBeenCalled();
     });
 
     it("returns a nextToken that continues after the last evaluated key", async () => {
         mockDynamo("query", {
             result: {
                 Items: [{ id: "1" }],
-                LastEvaluatedKey: { id: "1", createdAt: "c", ownerId: "user-1" },
+                LastEvaluatedKey: { ownerId: "user-1", id: "1" },
             },
         });
 
         const { nextToken } = JSON.parse((await invoke({ limit: "1" })).body);
 
-        expect(JSON.parse(Buffer.from(nextToken, "base64url").toString())).toEqual({ id: "1", createdAt: "c" });
+        expect(JSON.parse(Buffer.from(nextToken, "base64url").toString())).toEqual({ id: "1" });
     });
 
     it.each([

@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 
 describe("create", () => {
-    it("puts the task without overwriting an existing one", async () => {
+    it("puts the task, which carries the owner as its partition key, without overwriting one", async () => {
         await repository.create(task);
 
         expect(sentCommand()).toBeInstanceOf(PutCommand);
@@ -40,22 +40,26 @@ describe("create", () => {
 });
 
 describe("findById", () => {
-    it("reads the task with a consistent read and returns it to its owner", async () => {
+    it("reads the task from the caller's own partition with a consistent read", async () => {
         client.send.mockResolvedValue({ Item: task });
 
         expect(await repository.findById(OWNER, "task-1")).toEqual(task);
         expect(sentCommand()).toBeInstanceOf(GetCommand);
-        expect(sentCommand().input).toEqual({ TableName: "Tasks", Key: { id: "task-1" }, ConsistentRead: true });
+        expect(sentCommand().input).toEqual({
+            TableName: "Tasks",
+            Key: { ownerId: OWNER, id: "task-1" },
+            ConsistentRead: true,
+        });
     });
 
-    it("returns null when the task does not exist", async () => {
+    it("returns null when there is no such task in the caller's partition", async () => {
         expect(await repository.findById(OWNER, "missing")).toBeNull();
     });
 
-    it("returns null when the task belongs to another user", async () => {
-        client.send.mockResolvedValue({ Item: { ...task, ownerId: "someone-else" } });
+    it("looks in the partition of whoever asks, so another user's task is never addressed", async () => {
+        await repository.findById("user-2", "task-1");
 
-        expect(await repository.findById(OWNER, "task-1")).toBeNull();
+        expect(sentCommand().input.Key).toEqual({ ownerId: "user-2", id: "task-1" });
     });
 
     it("propagates infrastructure errors", async () => {
@@ -66,7 +70,7 @@ describe("findById", () => {
 });
 
 describe("listByOwner", () => {
-    it("queries the owner's index with the limit", async () => {
+    it("queries the caller's partition of the table with a consistent read and the limit", async () => {
         client.send.mockResolvedValue({ Items: [task] });
 
         const page = await repository.listByOwner(OWNER, { limit: 5 });
@@ -75,58 +79,55 @@ describe("listByOwner", () => {
         expect(sentCommand()).toBeInstanceOf(QueryCommand);
         expect(sentCommand().input).toEqual({
             TableName: "Tasks",
-            IndexName: "ownerId-createdAt-index",
             KeyConditionExpression: "ownerId = :ownerId",
             ExpressionAttributeValues: { ":ownerId": OWNER },
+            ConsistentRead: true,
             Limit: 5,
         });
     });
 
+    it("uses no secondary index", async () => {
+        await repository.listByOwner(OWNER, { limit: 5 });
+
+        expect(sentCommand().input).not.toHaveProperty("IndexName");
+    });
+
     it("continues after the cursor, scoped to the caller", async () => {
-        await repository.listByOwner(OWNER, { limit: 5, cursor: cursorFor({ id: "task-1", createdAt: "c" }) });
+        await repository.listByOwner(OWNER, { limit: 5, cursor: cursorFor({ id: "task-1" }) });
 
-        expect(sentCommand().input.ExclusiveStartKey).toEqual({ id: "task-1", createdAt: "c", ownerId: OWNER });
+        expect(sentCommand().input.ExclusiveStartKey).toEqual({ ownerId: OWNER, id: "task-1" });
     });
 
-    it("ignores an owner smuggled inside the cursor", async () => {
-        await repository.listByOwner(OWNER, {
-            limit: 5,
-            cursor: cursorFor({ id: "task-1", createdAt: "c", ownerId: "victim" }),
-        });
-
-        expect(sentCommand().input.ExclusiveStartKey.ownerId).toBe(OWNER);
-    });
-
-    it("returns a cursor without the owner when there are more pages", async () => {
+    it("returns a cursor with only the id when there are more pages", async () => {
         client.send.mockResolvedValue({
             Items: [task],
-            LastEvaluatedKey: { id: "task-1", createdAt: "c", ownerId: OWNER },
+            LastEvaluatedKey: { ownerId: OWNER, id: "task-1" },
         });
 
         const { nextCursor } = await repository.listByOwner(OWNER, { limit: 1 });
 
-        expect(JSON.parse(Buffer.from(nextCursor, "base64url").toString())).toEqual({ id: "task-1", createdAt: "c" });
+        expect(JSON.parse(Buffer.from(nextCursor, "base64url").toString())).toEqual({ id: "task-1" });
     });
 
     it("reads back a cursor it produced", async () => {
-        client.send.mockResolvedValueOnce({ Items: [task], LastEvaluatedKey: { id: "task-1", createdAt: "c", ownerId: OWNER } });
+        client.send.mockResolvedValueOnce({ Items: [task], LastEvaluatedKey: { ownerId: OWNER, id: "task-1" } });
         const { nextCursor } = await repository.listByOwner(OWNER, { limit: 1 });
 
         client.send.mockResolvedValueOnce({ Items: [] });
         await repository.listByOwner(OWNER, { limit: 1, cursor: nextCursor });
 
-        expect(client.send.mock.calls[1][0].input.ExclusiveStartKey).toEqual({ id: "task-1", createdAt: "c", ownerId: OWNER });
+        expect(client.send.mock.calls[1][0].input.ExclusiveStartKey).toEqual({ ownerId: OWNER, id: "task-1" });
     });
 
     it.each([
         ["not base64 JSON", "%%%"],
         ["JSON null", cursorFor(null)],
-        ["an object without id", cursorFor({ createdAt: "c" })],
-        ["an object without createdAt", cursorFor({ id: "1" })],
-        ["a non-string id", cursorFor({ id: 5, createdAt: "c" })],
-        ["a non-string createdAt", cursorFor({ id: "1", createdAt: 5 })],
-        ["an empty id", cursorFor({ id: "", createdAt: "c" })],
-        ["an empty cursor", ""],
+        ["an object without id", cursorFor({ foo: "bar" })],
+        ["a non-string id", cursorFor({ id: 5 })],
+        ["an empty id", cursorFor({ id: "" })],
+        ["an empty token", ""],
+        ["one issued before the key redesign, which also carried createdAt", cursorFor({ id: "task-1", createdAt: "c" })],
+        ["one that tries to smuggle in an owner", cursorFor({ id: "task-1", ownerId: "victim" })],
     ])("rejects a cursor that is %s without querying", async (_name, cursor) => {
         await expect(repository.listByOwner(OWNER, { limit: 5, cursor })).rejects.toThrow(InvalidCursorError);
         expect(client.send).not.toHaveBeenCalled();
@@ -140,17 +141,17 @@ describe("listByOwner", () => {
 });
 
 describe("update", () => {
-    it("updates only the fields that were sent, if the owner's task exists", async () => {
+    it("updates only the fields that were sent, in the caller's partition", async () => {
         await repository.update(OWNER, "task-1", { done: true });
 
         expect(sentCommand()).toBeInstanceOf(UpdateCommand);
         expect(sentCommand().input).toEqual({
             TableName: "Tasks",
-            Key: { id: "task-1" },
+            Key: { ownerId: OWNER, id: "task-1" },
             UpdateExpression: "set #done = :done",
             ExpressionAttributeNames: { "#done": "done" },
-            ExpressionAttributeValues: { ":done": true, ":ownerId": OWNER },
-            ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
+            ExpressionAttributeValues: { ":done": true },
+            ConditionExpression: "attribute_exists(id)",
             ReturnValues: "ALL_NEW",
         });
     });
@@ -160,16 +161,17 @@ describe("update", () => {
 
         const { input } = sentCommand();
         expect(input.UpdateExpression).toBe("set #done = :done, #title = :title");
-        expect(input.ExpressionAttributeValues).toEqual({ ":done": false, ":title": "New", ":ownerId": OWNER });
+        expect(input.ExpressionAttributeValues).toEqual({ ":done": false, ":title": "New" });
+        expect(input.Key).toEqual({ ownerId: OWNER, id: "task-1" });
     });
 
     it("keeps an empty description, which is a valid value", async () => {
         await repository.update(OWNER, "task-1", { description: "" });
 
-        expect(sentCommand().input.ExpressionAttributeValues).toEqual({ ":description": "", ":ownerId": OWNER });
+        expect(sentCommand().input.ExpressionAttributeValues).toEqual({ ":description": "" });
     });
 
-    it("rejects with TaskNotFoundError when the condition fails", async () => {
+    it("rejects with TaskNotFoundError when the task is not in the caller's partition", async () => {
         client.send.mockRejectedValue(conditionalCheckFailed());
 
         await expect(repository.update(OWNER, "task-1", { done: true })).rejects.toThrow(TaskNotFoundError);
@@ -184,19 +186,18 @@ describe("update", () => {
 });
 
 describe("delete", () => {
-    it("deletes the task if it exists and belongs to the owner", async () => {
+    it("deletes the task from the caller's partition if it exists", async () => {
         await repository.delete(OWNER, "task-1");
 
         expect(sentCommand()).toBeInstanceOf(DeleteCommand);
         expect(sentCommand().input).toEqual({
             TableName: "Tasks",
-            Key: { id: "task-1" },
-            ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
-            ExpressionAttributeValues: { ":ownerId": OWNER },
+            Key: { ownerId: OWNER, id: "task-1" },
+            ConditionExpression: "attribute_exists(id)",
         });
     });
 
-    it("rejects with TaskNotFoundError when the condition fails", async () => {
+    it("rejects with TaskNotFoundError when the task is not in the caller's partition", async () => {
         client.send.mockRejectedValue(conditionalCheckFailed());
 
         await expect(repository.delete(OWNER, "task-1")).rejects.toThrow(TaskNotFoundError);

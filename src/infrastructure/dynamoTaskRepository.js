@@ -3,18 +3,19 @@ import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } fr
 import { InvalidCursorError, TaskNotFoundError } from "../domain/errors.js";
 import { UPDATABLE_FIELDS } from "../domain/task.js";
 
-const OWNER_INDEX = "ownerId-createdAt-index";
-const OWNED_TASK_EXISTS = "attribute_exists(id) AND ownerId = :ownerId";
+// The table is keyed by owner (partition) and task id (sort). Every request addresses the caller's
+// own partition, so ownership is part of the key and one user's request can never match another
+// user's task. Ids are time-sortable, so a query returns the owner's tasks oldest first.
+const TASK_EXISTS = "attribute_exists(id)";
 
 const isNonEmptyString = (value) => typeof value === "string" && value !== "";
 
-// The cursor holds only the table and index key attributes of the last item read. The owner is
-// never part of it: it is added back from the caller's identity, so a forged cursor cannot page
-// through another user's tasks.
+// The cursor holds exactly the sort key of the last item read. The owner is never part of it: it is
+// added back from the caller's identity, so a forged cursor cannot page through another user's
+// tasks. A cursor with anything else in it, such as one issued before the key redesign, is
+// rejected instead of being guessed at.
 const encodeCursor = (lastEvaluatedKey) =>
-    lastEvaluatedKey
-        ? Buffer.from(JSON.stringify({ id: lastEvaluatedKey.id, createdAt: lastEvaluatedKey.createdAt })).toString("base64url")
-        : null;
+    lastEvaluatedKey ? Buffer.from(JSON.stringify({ id: lastEvaluatedKey.id })).toString("base64url") : null;
 
 const decodeCursor = (cursor, ownerId) => {
     let key;
@@ -25,11 +26,14 @@ const decodeCursor = (cursor, ownerId) => {
         throw new InvalidCursorError();
     }
 
-    if (!isNonEmptyString(key?.id) || !isNonEmptyString(key?.createdAt)) {
+    const isExactlyAnId = key !== null && typeof key === "object"
+        && Object.keys(key).length === 1 && isNonEmptyString(key.id);
+
+    if (!isExactlyAnId) {
         throw new InvalidCursorError();
     }
 
-    return { id: key.id, createdAt: key.createdAt, ownerId };
+    return { ownerId, id: key.id };
 };
 
 const isConditionalCheckFailure = (error) => error.name === "ConditionalCheckFailedException";
@@ -55,11 +59,11 @@ export class DynamoTaskRepository {
     async findById(ownerId, id) {
         const { Item } = await this.#client.send(new GetCommand({
             TableName: this.#tableName,
-            Key: { id },
+            Key: { ownerId, id },
             ConsistentRead: true,
         }));
 
-        return Item?.ownerId === ownerId ? Item : null;
+        return Item ?? null;
     }
 
     async listByOwner(ownerId, { limit, cursor }) {
@@ -67,9 +71,9 @@ export class DynamoTaskRepository {
 
         const result = await this.#client.send(new QueryCommand({
             TableName: this.#tableName,
-            IndexName: OWNER_INDEX,
             KeyConditionExpression: "ownerId = :ownerId",
             ExpressionAttributeValues: { ":ownerId": ownerId },
+            ConsistentRead: true,
             Limit: limit,
             ExclusiveStartKey: exclusiveStartKey,
         }));
@@ -83,14 +87,11 @@ export class DynamoTaskRepository {
         try {
             await this.#client.send(new UpdateCommand({
                 TableName: this.#tableName,
-                Key: { id },
+                Key: { ownerId, id },
                 UpdateExpression: "set " + fields.map((field) => `#${field} = :${field}`).join(", "),
                 ExpressionAttributeNames: Object.fromEntries(fields.map((field) => [`#${field}`, field])),
-                ExpressionAttributeValues: {
-                    ...Object.fromEntries(fields.map((field) => [`:${field}`, changes[field]])),
-                    ":ownerId": ownerId,
-                },
-                ConditionExpression: OWNED_TASK_EXISTS,
+                ExpressionAttributeValues: Object.fromEntries(fields.map((field) => [`:${field}`, changes[field]])),
+                ConditionExpression: TASK_EXISTS,
                 ReturnValues: "ALL_NEW",
             }));
         } catch (error) {
@@ -102,9 +103,8 @@ export class DynamoTaskRepository {
         try {
             await this.#client.send(new DeleteCommand({
                 TableName: this.#tableName,
-                Key: { id },
-                ConditionExpression: OWNED_TASK_EXISTS,
-                ExpressionAttributeValues: { ":ownerId": ownerId },
+                Key: { ownerId, id },
+                ConditionExpression: TASK_EXISTS,
             }));
         } catch (error) {
             throw isConditionalCheckFailure(error) ? new TaskNotFoundError() : error;
