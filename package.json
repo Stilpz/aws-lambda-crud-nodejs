@@ -27,6 +27,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "test:coverage": "vitest run --coverage",
-    "lint:api": "redocly lint docs/openapi.yaml"
+    "lint:api": "redocly lint docs/openapi.yaml",
+    "audit:prod": "npm audit --omit=dev --audit-level=high"
   }
 }

@@ -5,9 +5,13 @@ on:
     branches: [development, staging, production, main]
   pull_request:
     branches: [development, staging, production, main]
+  # New advisories appear without any change in the repository, so the audit also runs weekly.
+  schedule:
+    - cron: "0 6 * * 1"
 
 jobs:
   lint-and-test:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +24,7 @@ jobs:
       - run: npm run test:coverage
 
   openapi-lint:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,3 +34,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint:api
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run audit:prod
