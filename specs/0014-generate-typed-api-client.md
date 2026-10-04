@@ -1,6 +1,6 @@
 # 0014: Generate a typed API client from the contract
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `generate-typed-api-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Typed client from the contract" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Amendments:** 1 (see the end of this spec)
@@ -117,17 +117,19 @@ In both cases the generation command, the drift check and the generated file are
 
 ## Acceptance criteria
 
-- [ ] `npm run api:generate` produces `api-client/schema.d.ts` containing `paths` for every operation in `docs/openapi.yaml` (`hello`, `createTask`, `listTasks`, `getTask`, `updateTask`, `deleteTask`, plus `patchTask` once 0012 is merged) and the named types `Task`, `TaskPage`, `CreateTask`, `UpdateTask`, `Message`, `ValidationError`.
-- [ ] Running `npm run api:generate` twice leaves `git status` clean (deterministic output).
-- [ ] `npm run api:check` exits 0 on a clean tree, and exits non-zero after adding any property to a schema in `docs/openapi.yaml` without regenerating, and after editing `schema.d.ts` by hand (both shown locally and recorded in the pull request).
-- [ ] `npm run api:typecheck` exits 0, and exits non-zero after renaming a path in a copy of the contract and regenerating (the factory's usage no longer type-checks).
-- [ ] The factory test proves URL, method, path parameter substitution, the bearer header and a JSON body, with an injected `fetch`.
-- [ ] `nextToken` is typed `string | null` and `Task.id` as `string` in the generated file (a check on the output).
-- [ ] `src/` imports nothing from `api-client/`, and `api-client/` imports nothing from `src/`.
-- [ ] The CI workflow runs `api:check` and `api:typecheck`.
-- [ ] If packaging includes it, `api-client/` is excluded from the Lambda artifact.
-- [ ] The README documents regeneration and usage, and no longer recommends `openapi-generator-cli`.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `npm run api:generate` produces `api-client/schema.d.ts` containing `paths` for every operation in `docs/openapi.yaml` (`hello`, `createTask`, `listTasks`, `getTask`, `updateTask`, `deleteTask`, plus `patchTask` once 0012 is merged) and the named types `Task`, `TaskPage`, `CreateTask`, `UpdateTask`, `Message`, `ValidationError`.
+- [x] Running `npm run api:generate` twice leaves `git status` clean (deterministic output).
+- [x] `npm run api:check` exits 0 on a clean tree, and exits non-zero after adding any property to a schema in `docs/openapi.yaml` without regenerating, and after editing `schema.d.ts` by hand (both shown locally and recorded in the pull request).
+- [x] `npm run api:typecheck` exits 0, and exits non-zero after renaming a path in a copy of the contract and regenerating (the factory's usage no longer type-checks).
+- [x] The factory test proves URL, method, path parameter substitution, the bearer header and a JSON body, with an injected `fetch`.
+- [x] `nextToken` is typed `string | null` and `Task.id` as `string` in the generated file (a check on the output).
+- [x] `src/` imports nothing from `api-client/`, and `api-client/` imports nothing from `src/`.
+- [x] The CI workflow runs `api:check` and `api:typecheck`.
+- [x] If packaging includes it, `api-client/` is excluded from the Lambda artifact.
+- [x] The README documents regeneration and usage, and no longer recommends `openapi-generator-cli`.
+- [x] `npm run lint` and `npm test` pass.
+
+The artifact listing of the Lambda packages (that `api-client/` is really absent) can only be produced by `serverless package`, which needs AWS credentials; the maintainer checks it after the first deploy. The exclusion pattern itself is verified by `serverless print` and by `tests/packaging.test.js`.
 
 ## Verification
 
