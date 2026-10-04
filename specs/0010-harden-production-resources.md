@@ -119,11 +119,11 @@ Principles: least privilege and fail-safe defaults (security), SRP (the profile 
 ## Acceptance criteria
 
 - [ ] `serverless print --stage dev` and `--stage staging` show the values in the profile table, and `--stage some-other-name` equals the `staging` values for every hardening property.
-- [ ] `serverless package` for `staging` shows on `TaskTable`: `DeletionPolicy` and `UpdateReplacePolicy` `Retain`, `DeletionProtectionEnabled: true`, `PointInTimeRecoveryEnabled: true`; on `UserPool`: `Retain`, `DeletionProtection: ACTIVE`, `MfaConfiguration: OPTIONAL`, `EnabledMfas` with `SOFTWARE_TOKEN_MFA`; and for `dev` the lenient values (`Delete`, `false`, `INACTIVE`, `OFF`, no `EnabledMfas`).
+- [ ] `serverless print` for `staging` shows on `TaskTable`: `DeletionPolicy` and `UpdateReplacePolicy` `Retain`, `DeletionProtectionEnabled: true`, `PointInTimeRecoveryEnabled: true`; on `UserPool`: `Retain`, `DeletionProtection: ACTIVE`, `MfaConfiguration: OPTIONAL`, and `EnabledMfas` guarded by a condition that is true; and for `dev` the lenient values (`Delete`, `false`, `INACTIVE`, `OFF`, the condition false so `EnabledMfas` is absent).
 - [ ] The `UserPoolClient` flows in `staging` are exactly `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH`; in `dev` they also include `ALLOW_USER_PASSWORD_AUTH`.
 - [ ] `HttpApiStage` has the throttling limits per stage and still has `DetailedMetricsEnabled: false`.
-- [ ] No provider-level `iam` statements remain. Each of the five task functions has its own role with exactly the one DynamoDB action in the table above on the table ARN, and the shared role has none; `hello` has no DynamoDB access. Verified by reading the packaged template.
-- [ ] No role in the template allows `dynamodb:*`, a wildcard resource for DynamoDB, or an `/index/*` resource.
+- [ ] No provider-level `iam` statements remain. Each of the five task functions has its own role with exactly the one DynamoDB action in the table above on the table ARN, and the shared role has none; `hello` has no DynamoDB access. Verified in `serverless print` (the functions' `iam.role.statements` and the absent provider `iam` block); the generated roles are confirmed by the maintainer with `serverless package`.
+- [ ] No statement in the resolved configuration allows `dynamodb:*`, a wildcard resource for DynamoDB, or an `/index/*` resource.
 - [ ] `scripts/smoke.sh` uses `admin-initiate-auth` with `ADMIN_USER_PASSWORD_AUTH`, no longer mentions `USER_PASSWORD_AUTH` in code, and `bash -n scripts/smoke.sh` accepts it.
 - [ ] No change under `src/` or `tests/` (this spec is infrastructure, script and docs only), and `docs/openapi.yaml` routes and schemas are unchanged.
 - [ ] README, ARCHITECTURE and the Spanish references describe the profile, the allowed flows per stage, the retain-and-recover runbook and why removal is blocked in strict stages, with matching structure in both languages.
@@ -138,15 +138,16 @@ bash -n scripts/smoke.sh
 grep -n "USER_PASSWORD_AUTH" scripts/smoke.sh      # only ADMIN_USER_PASSWORD_AUTH
 git diff <base> --stat -- src tests                # prints nothing
 for s in dev staging some-other-name; do npx serverless print --stage $s --format json > /tmp/print-$s.json; done
-npx serverless package --stage staging --package /tmp/pkg-staging
-npx serverless package --stage dev --package /tmp/pkg-dev
 node -e '
-const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).Resources;
-console.log(t.TaskTable.DeletionPolicy, t.TaskTable.Properties.DeletionProtectionEnabled,
-  t.UserPool.Properties.MfaConfiguration, t.UserPoolClient.Properties.ExplicitAuthFlows,
-  t.HttpApiStage.Properties.DefaultRouteSettings);
-for (const [id, r] of Object.entries(t)) if (r.Type === "AWS::IAM::Role") console.log(id, JSON.stringify(r.Properties.Policies[0].PolicyDocument.Statement.map((s) => s.Action)));
-' /tmp/pkg-staging/cloudformation-template-update-stack.json
+const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+const r = c.resources.Resources;
+console.log(r.TaskTable.DeletionPolicy, r.TaskTable.Properties.DeletionProtectionEnabled,
+  r.UserPool.Properties.MfaConfiguration, r.UserPoolClient.Properties.ExplicitAuthFlows,
+  c.resources.extensions.HttpApiStage.Properties.DefaultRouteSettings);
+for (const [name, f] of Object.entries(c.functions)) console.log(name, JSON.stringify(f.iam?.role?.statements?.map((s) => s.Action)));
+console.log("provider iam:", JSON.stringify(c.provider.iam));
+' /tmp/print-staging.json
+# maintainer, when able: npx serverless package --stage staging --package /tmp/pkg-staging and read the roles
 ```
 
 Post-deploy commands are the AWS CLI checks in the last acceptance criterion; they are read-only except the smoke test, which creates and deletes its own throwaway users.
@@ -172,6 +173,15 @@ Post-deploy commands are the AWS CLI checks in the last acceptance criterion; th
 - **Risk:** throttle values set too low reject legitimate bursts. Mitigated by modest defaults and by the fact that they are params, adjustable without a code change.
 - **Unverified at spec time:** that `EnabledMfas: [SOFTWARE_TOKEN_MFA]` is accepted on the default Essentials tier without extra configuration (the CloudFormation reference lists it with no SMS or email requirement); the exact `HttpApiStage` throttle behavior on first deploy (checked by `serverless package`, not by deploying); whether `DefaultRouteSettings` with throttling needs `DetailedMetricsEnabled` set explicitly (it is restated to avoid losing it). A failure on first deploy to `dev` shows these early.
 - **Rollback:** revert the merge and redeploy. Protection flags, MFA and flows revert in place; retained resources are not deleted by a rollback. A table or pool created with `Retain` stays after a revert and is not lost. The shared role comes back with its five-action statement.
+
+## Amendments
+
+Found while implementing; the Decisions below are unchanged.
+
+1. **Verification uses `serverless print` only** (the implementation environment may not run `package`, which contacts AWS for some lookups). Criteria that read the packaged template now read the resolved configuration; the generated roles are confirmed by the maintainer with `serverless package` or at deploy time.
+2. **The app client flows are a per-stage list parameter** (`authFlows`) instead of a yes/no `passwordAuthFlow`, so the exact flows can be read from `serverless print`. The profile meaning is the same.
+3. **`EnabledMfas` is guarded by a CloudFormation condition** (`MfaEnabled`, true when the `mfa` parameter is not `OFF`), because Cognito wants `EnabledMfas` removed, not empty, when MFA is `OFF`. A condition with `AWS::NoValue` removes the property; `print` shows the condition, not its result. The CI template validation already keeps `Conditions` (spec 0009).
+4. **The `HttpApiStage` extension lives in a new `resources/api.yml`**, included from `serverless.yml`, as the layout from spec 0011 asks for new resource definitions.
 
 ## Decisions to confirm
 
