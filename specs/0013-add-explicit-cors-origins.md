@@ -1,6 +1,6 @@
 # 0013: Add explicit CORS origins
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `add-explicit-cors-origins` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "CORS with explicit origins" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -124,16 +124,18 @@ The JWT authorizer is attached to the individual routes, and the preflight is an
 
 ## Acceptance criteria
 
-- [ ] `serverless print --stage dev` shows `allowedOrigins` as a list taken from the per-stage configuration, and `--stage prod` shows a different list.
-- [ ] No resolved configuration contains `*` in `allowedOrigins`, `allowedHeaders` or `allowedMethods`, and `allowCredentials` is not `true`.
-- [ ] `Authorization` and `Content-Type` are allowed, every HTTP method of a function event in `serverless.yml` is allowed, and `Deprecation` and `Sunset` are exposed.
-- [ ] `tests/cors.test.js` asserts the points above and fails when a wildcard or a missing header is introduced (shown by temporarily editing `serverless.yml` locally).
+- [x] `serverless print --stage dev` shows `allowedOrigins` as a list taken from the per-stage configuration, and `--stage prod` shows a different list.
+- [x] No resolved configuration contains `*` in `allowedOrigins`, `allowedHeaders` or `allowedMethods`, and `allowCredentials` is not `true`.
+- [x] `Authorization` and `Content-Type` are allowed, every HTTP method of a function event in `serverless.yml` is allowed, and `Deprecation` and `Sunset` are exposed.
+- [x] `tests/cors.test.js` asserts the points above and fails when a wildcard or a missing header is introduced (shown by temporarily editing `serverless.yml` locally).
 - [ ] After a deploy to `dev`: a preflight from the dev origin answers `2xx` with `Access-Control-Allow-Origin` equal to that origin, and from `https://evil.example` returns no `Access-Control-Allow-Origin`.
 - [ ] A real `GET /tasks` with the dev origin and a valid token returns `Access-Control-Allow-Origin` equal to the origin.
 - [ ] The behavior of a `401` with an `Origin` header is recorded in the README as observed.
-- [ ] `scripts/smoke.sh` passes `bash -n` and includes the CORS checks.
-- [ ] No handler sets a CORS header (`grep` below prints nothing).
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `scripts/smoke.sh` passes `bash -n` and includes the CORS checks.
+- [x] No handler sets a CORS header (`grep` below prints nothing).
+- [x] `npm run lint` and `npm test` pass.
+
+The three unticked criteria need a deployed stage. They are checked by the maintainer after the first deploy with `STAGE=dev ./scripts/smoke.sh`, which runs the preflight and real-request checks and prints the observed `401` behavior; the README text about the `401` is then confirmed or corrected.
 
 ## Verification
 
