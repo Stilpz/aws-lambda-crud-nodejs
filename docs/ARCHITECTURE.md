@@ -34,7 +34,7 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 3. `getOwnerId` (`src/handlers/auth.js`) reads `sub`. This is the only source of identity.
 4. For routes with a body, the middy stack parses it (`415` and `422` on failure) and validates it against a schema (`400`).
 5. The handler calls the use case for the operation (wired in `src/container.js`), passing the caller as `ownerId`. The use case works through the task repository; `DynamoTaskRepository` is the only code that talks to DynamoDB, through the shared document client (`src/infrastructure/dynamoClient.js`).
-6. The handler returns `{ statusCode, body }`; unexpected errors are logged and answered with `500` and a fixed message.
+6. The handler returns `{ statusCode, body }`. Errors thrown below it are turned into HTTP responses in one place, `withErrorMapping` (`src/handlers/errorBoundary.js`): not found is `404`, invalid pagination input is `400`, and anything else is logged and answered with `500` and a fixed message.
 
 ### Access patterns and ownership
 
@@ -76,7 +76,7 @@ Found while auditing the code against the documentation. Status is as of this do
 | F6 | Tasks created before `ownerId` are unreachable | Documented; roadmap step 4 provides a migration |
 | F7 | No end-to-end check of authentication and isolation | Fixed (`scripts/smoke.sh`); to be run in CI by step 8 |
 | F8 | `GET /tasks/{id}` used an eventually consistent read, so a task could be missing right after it was created | Fixed (`ConsistentRead`) |
-| F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)) and every use case requires `ownerId` ([spec 0003](../specs/0003-add-task-use-cases.md)). Error mapping is still per handler: roadmap step 3 |
+| F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)) and every use case requires `ownerId` ([spec 0003](../specs/0003-add-task-use-cases.md)). Error mapping now sits in one boundary ([spec 0004](../specs/0004-standardize-error-responses.md)) |
 | F10 | No observability, deploy pipeline, production safeguards (retention, point-in-time recovery, deletion protection) or CORS | Open; roadmap steps 6 to 9 |
 | F11 | `PUT` has PATCH semantics; `POST` is not idempotent | Open; roadmap step 11 |
 
@@ -112,7 +112,7 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | --- | --- | --- | --- |
 | 1 | `extract-task-repository-port` | `TaskRepository` port and `DynamoTaskRepository`; handlers use it; behavior unchanged. **Done**, [spec 0001](../specs/0001-extract-task-repository-port.md) | Existing tests green; repository tests |
 | 2 | `add-task-use-cases` | `application/` use cases take `ownerId`; handlers become thin and move to `src/handlers/`. **Done**, [spec 0003](../specs/0003-add-task-use-cases.md) | Use-case tests with an in-memory repository |
-| 3 | `standardize-error-responses` | Typed errors and one error mapper; keep the `{ message }` shape unless RFC 9457 is chosen | OpenAPI examples match responses |
+| 3 | `standardize-error-responses` | Typed errors and one error mapper; the `{ message }` shape is kept. **Done**, [spec 0004](../specs/0004-standardize-error-responses.md) | OpenAPI examples match responses |
 | 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership; explicit `--owner`, dry run by default | Dry run on the dev table |
 | 5 | `redesign-task-table-keys` | New table keyed `PK = ownerId`, `SK = id` with a time-sortable id (such as ULID): consistent listing, no GSI, ownership implicit in the key. Side-by-side migration, then drop the old table | Smoke test; migration check. Breaking for cursors |
 | 6 | `add-observability-with-powertools` | Structured logs, correlation id, tracing, metrics, log retention, alarms on 5xx, throttles and latency | Logs and alarms visible in dev |

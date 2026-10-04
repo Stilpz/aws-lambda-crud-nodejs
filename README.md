@@ -90,6 +90,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   │   ├── deleteTask.js   # DELETE /tasks/{id}   delete a task
 │   │   ├── auth.js         # Reads the caller's user id from the JWT claims
 │   │   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
+│   │   ├── errorBoundary.js # The one place that maps domain and input errors to HTTP
 │   │   ├── schemas.js      # JSON Schemas for the create and update bodies
 │   │   └── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
 │   ├── application/    # One use case per operation: createTask, getTask, listTasks, updateTask, deleteTask

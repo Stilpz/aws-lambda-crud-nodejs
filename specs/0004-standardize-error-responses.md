@@ -1,6 +1,6 @@
 # 0004: Standardize error responses behind one boundary
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `standardize-error-responses` (started from `development`)
 - **Roadmap step:** 3 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -80,12 +80,12 @@ One edge case changes: in `addTask`, `getOwnerId` is read before the `try`, so a
 
 ## Acceptance criteria
 
-- [ ] The existing handler tests pass with their assertions unchanged, and no existing test file is modified.
-- [ ] New boundary tests cover: success passes through untouched, `TaskNotFoundError` to 404, `InvalidCursorError` and `InvalidPaginationError` to 400 with their message, an unknown error to 500 with the fixed message and one `console.error` call with the label, the context argument is forwarded, and an error is never returned to the client verbatim.
-- [ ] No handler contains a `try/catch`.
-- [ ] `statusCode: 400`, `404` and `500` appear only in `src/handlers/errorBoundary.js` (success `200` and `201` stay in the handlers).
-- [ ] `docs/openapi.yaml` and `serverless.yml` are unchanged.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] The existing handler tests pass with their assertions unchanged, and no existing test file is modified.
+- [x] New boundary tests cover: success passes through untouched, `TaskNotFoundError` to 404, `InvalidCursorError` and `InvalidPaginationError` to 400 with their message, an unknown error to 500 with the fixed message and one `console.error` call with the label, the context argument is forwarded, and an error is never returned to the client verbatim.
+- [x] No handler contains a `try/catch`.
+- [x] `statusCode: 400`, `404` and `500` appear only in `src/handlers/errorBoundary.js` (success `200` and `201` stay in the handlers).
+- [x] `docs/openapi.yaml` and `serverless.yml` are unchanged.
+- [x] `npm run lint` and `npm test` pass.
 - [ ] The pull request links this spec and states it matches it.
 
 ## Verification
