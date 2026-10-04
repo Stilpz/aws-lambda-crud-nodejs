@@ -1,6 +1,6 @@
 # 0015: Add a Cognito app client for the SPA
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `add-spa-cognito-app-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Browser-safe sign-in" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
