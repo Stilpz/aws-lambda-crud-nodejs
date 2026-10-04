@@ -1,6 +1,6 @@
 # 0013: Add explicit CORS origins
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `add-explicit-cors-origins` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "CORS with explicit origins" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
