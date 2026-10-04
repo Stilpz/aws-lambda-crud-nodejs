@@ -1,8 +1,10 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
     test: {
         restoreMocks: true,
+        // Integration tests need DynamoDB Local and have their own configuration.
+        exclude: [...configDefaults.exclude, "tests/integration/**"],
         env: {
             TABLE_NAME: "TaskTable-test",
             AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE: "1",

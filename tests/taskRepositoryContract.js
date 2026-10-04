@@ -125,7 +125,10 @@ export const describeTaskRepositoryContract = (name, createRepository) => {
                 expect(await listAll(repository, owner, 2)).toEqual(tasks);
             });
 
-            it("ends with a null cursor when the last page is exactly full", async () => {
+            // DynamoDB hands out a cursor after a page that exactly exhausts the items, and the next
+            // page is then empty. The port only promises a null cursor when there are no more pages,
+            // so the contract accepts that trailing empty page and checks the end is reached.
+            it("reaches a null cursor after the last item, without gaps or repeats", async () => {
                 const owner = newOwner();
                 const tasks = await createTasks(repository, owner, 4);
 
