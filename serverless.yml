@@ -36,7 +36,6 @@ provider:
             - dynamodb:DeleteItem
           Resource:
             - !GetAtt TaskTable.Arn
-            - !Sub "${TaskTable.Arn}/index/*"
 
 functions:
   hello:
@@ -91,27 +90,18 @@ resources:
     TaskTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: TaskTable-${sls:stage}
+        TableName: Tasks-${sls:stage}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: id
-            AttributeType: S
           - AttributeName: ownerId
             AttributeType: S
-          - AttributeName: createdAt
+          - AttributeName: id
             AttributeType: S
         KeySchema:
-          - AttributeName: id
+          - AttributeName: ownerId
             KeyType: HASH
-        GlobalSecondaryIndexes:
-          - IndexName: ownerId-createdAt-index
-            KeySchema:
-              - AttributeName: ownerId
-                KeyType: HASH
-              - AttributeName: createdAt
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
+          - AttributeName: id
+            KeyType: RANGE
     UserPool:
       Type: AWS::Cognito::UserPool
       Properties:
