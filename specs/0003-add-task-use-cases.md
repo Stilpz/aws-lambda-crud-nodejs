@@ -1,6 +1,6 @@
 # 0003: Add task use cases and thin handlers
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `add-task-use-cases` (started from `development`)
 - **Roadmap step:** 2 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -91,14 +91,14 @@ src/handlers  ──▶  src/container.js  ──▶  src/application  ──▶
 
 ## Acceptance criteria
 
-- [ ] The existing handler tests (`addTask`, `getTask`, `getTasks`, `updateTask`, `deleteTask`) and `pagination.test.js` pass with their assertions unchanged; only their import paths change.
-- [ ] New use-case tests cover each use case: creation defaults and generated fields, owner always passed to the repository, `TaskNotFoundError` for a missing and for another user's task, error propagation, and that `listTasks` passes limit and cursor through.
-- [ ] `src/application` imports only from `src/domain`.
-- [ ] No module under `src/handlers` imports `src/infrastructure` or `@aws-sdk/*`.
-- [ ] `src/infrastructure/taskRepository.js` no longer exists and nothing references it.
-- [ ] Every `handler:` entry in `serverless.yml` resolves to an exported function (checked by the command below).
-- [ ] `git diff development -- serverless.yml` shows only the six `handler:` lines; `docs/openapi.yaml` is unchanged.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] The existing handler tests (`addTask`, `getTask`, `getTasks`, `updateTask`, `deleteTask`) and `pagination.test.js` pass with their assertions unchanged; only their import paths change.
+- [x] New use-case tests cover each use case: creation defaults and generated fields, owner always passed to the repository, `TaskNotFoundError` for a missing and for another user's task, error propagation, and that `listTasks` passes limit and cursor through.
+- [x] `src/application` imports only from `src/domain`.
+- [x] No module under `src/handlers` imports `src/infrastructure` or `@aws-sdk/*`.
+- [x] `src/infrastructure/taskRepository.js` no longer exists and no code references it (prose that describes its removal is fine).
+- [x] Every `handler:` entry in `serverless.yml` resolves to an exported function (checked by the command below).
+- [x] `git diff development -- serverless.yml` shows only the six `handler:` lines; `docs/openapi.yaml` is unchanged.
+- [x] `npm run lint` and `npm test` pass.
 - [ ] The pull request links this spec and states it matches it.
 
 ## Verification

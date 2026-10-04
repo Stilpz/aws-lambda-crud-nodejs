@@ -39,7 +39,7 @@ Each step gets its own spec, written and approved before the work starts, number
 | Step | Branch | Outcome |
 | --- | --- | --- |
 | 1 | `extract-task-repository-port` | `TaskRepository` port and `DynamoTaskRepository`; handlers use the port; behavior unchanged. Spec [0001](0001-extract-task-repository-port.md) |
-| 2 | `add-task-use-cases` | `application/` use cases that take `ownerId`; thin handlers moved to `src/handlers/` |
+| 2 | `add-task-use-cases` | `application/` use cases that take `ownerId`; thin handlers moved to `src/handlers/`. Spec [0003](0003-add-task-use-cases.md) |
 | 3 | `standardize-error-responses` | Typed errors mapped in one place; the `{ message }` shape is kept unless a spec decides otherwise |
 | 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to pre-ownership tasks; dry run by default |
 | 5 | `redesign-task-table-keys` | Table keyed by `ownerId` and a time-sortable id: consistent listing, no secondary index |

@@ -40,7 +40,7 @@ If your change depends on another open pull request, say so in your description 
 
 - Start from the approved spec (or propose one in a pull request that adds only the spec) and stay inside its scope.
 - Keep the style of the file you edit (ES modules, and the indentation and quotes already used there; `npm run lint` enforces the rest).
-- Handlers read the table name from `process.env.TABLE_NAME` and the caller from `getOwnerId` in `src/auth.js`. Every query, update and delete must be scoped to the caller. See [Local Development](README.md#local-development) for how to add an endpoint.
+- Handlers read the caller with `getOwnerId` in `src/handlers/auth.js` and pass it to a use case; the table name comes from `process.env.TABLE_NAME` in the composition root (`src/container.js`). Every use case and repository call takes the caller as `ownerId`, and every query, update and delete must be scoped to it. See [Local Development](README.md#local-development) for how to add an endpoint.
 - If you add or change a route, status code or field, update [`docs/openapi.yaml`](docs/openapi.yaml) and the API tables in the README in the same pull request.
 
 ## 4. Check it
