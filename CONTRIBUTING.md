@@ -41,6 +41,7 @@ If your change depends on another open pull request, say so in your description 
 - Start from the approved spec (or propose one in a pull request that adds only the spec) and stay inside its scope.
 - Keep the style of the file you edit (ES modules, and the indentation and quotes already used there; `npm run lint` enforces the rest).
 - Handlers read the caller with `getOwnerId` in `src/handlers/auth.js` and pass it to a use case; the table name comes from `process.env.TABLE_NAME` in the composition root (`src/container.js`). Every use case and repository call takes the caller as `ownerId`, and every query, update and delete must be scoped to it. See [Local Development](README.md#local-development) for how to add an endpoint.
+- Frontend work will go in `web/` in this repository and follows the same spec, branch and commit rules; see the [decision record](docs/decisions/0002-frontend-repository-layout.md).
 - If you add or change a route, status code or field, update [`docs/openapi.yaml`](docs/openapi.yaml) and the API tables in the README in the same pull request.
 
 ## 4. Check it

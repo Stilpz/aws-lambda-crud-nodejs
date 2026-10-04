@@ -39,6 +39,7 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | This README | Setup, authentication, API reference, consuming the API, troubleshooting |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable API contract (OpenAPI 3.0.3). Import it into Postman, Insomnia or a client generator |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
+| [`docs/decisions/`](docs/decisions/0002-frontend-repository-layout.md) | Decision records, including where the React frontend will live (`web/` in this repository) |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
 | [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
 | [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |

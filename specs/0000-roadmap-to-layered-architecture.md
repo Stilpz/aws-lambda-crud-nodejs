@@ -63,7 +63,7 @@ The frontend comes after the API is stable. These items prepare the ground; each
 | Typed client from the contract | `generate-typed-api-client` | Generate types and a client from `docs/openapi.yaml` (for example `openapi-typescript`), so the frontend cannot drift from the API |
 | Browser-safe sign-in | `add-spa-cognito-app-client` | A separate app client for the SPA using the hosted UI with authorization code and PKCE, with callback and logout URLs per stage. `USER_PASSWORD_AUTH` stays for scripts and tests only |
 | Contract stability policy | `define-api-versioning-policy` | Rules for what counts as breaking, how it is announced and deprecated. The OpenAPI file is the single source of truth |
-| Frontend home | `decide-frontend-repository-layout` | Decision record: a `web/` workspace in this repository or a separate repository, how it is built, tested and deployed (for example S3 and CloudFront), and how it consumes the generated client |
+| Frontend home | `decide-frontend-repository-layout` | Decision record: a `web/` workspace in this repository or a separate repository, how it is built, tested and deployed (for example S3 and CloudFront), and how it consumes the generated client. Spec [0018](0018-decide-frontend-repository-layout.md); record [`docs/decisions/0002-frontend-repository-layout.md`](../docs/decisions/0002-frontend-repository-layout.md) |
 
 Properties the API already offers to a React client and must keep: cursor pagination (fits infinite scroll), a stable error shape with per-field `errors`, ownership-scoped data, and a consistent single-task read.
 
