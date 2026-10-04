@@ -8,6 +8,12 @@ export default defineConfig({
         env: {
             TABLE_NAME: "TaskTable-test",
             AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE: "1",
+            // Powertools reads its configuration from the environment. Logs stay silent in tests;
+            // the observability tests raise the level or spy on the output where they need it.
+            POWERTOOLS_SERVICE_NAME: "tasks-api-test",
+            POWERTOOLS_METRICS_NAMESPACE: "TasksApiTest",
+            POWERTOOLS_LOG_LEVEL: "SILENT",
+            STAGE: "test",
         },
         coverage: {
             provider: "v8",
