@@ -4,7 +4,7 @@
 - **Branch:** `add-explicit-cors-origins` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "CORS with explicit origins" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
-- **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md), merged). Related to 0010 (hardening; the roadmap lists "explicit CORS origins" under step 9 as well, see Decision 5), 0011 (config split: the per-stage origins file lives with the split configuration if it lands first), 0012 (`PATCH` and the `Deprecation`/`Sunset` headers) and 0015 (the SPA origin is also the Cognito callback origin).
+- **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md), merged). Related to 0010 (hardening; the roadmap lists "explicit CORS origins" under step 9 as well, see Decision 5), 0011 (config split, merged: the `provider` block and the per-stage `stages:` parameters stay in the root `serverless.yml`, the CORS block belongs to `provider`), 0012 (`PATCH` and the `Deprecation`/`Sunset` headers) and 0015 (the SPA origin is also the Cognito callback origin).
 
 ## Context
 
@@ -72,7 +72,7 @@ provider:
 
 `http://localhost:5173` is the Vite development server default and is an assumption about the future frontend tooling (Decision 1). The `default` entry makes every personal stage (a fork deploying `--stage alice`) work for local development and nothing else; `staging` and `prod` list their real origins. Because the origins are not secrets and the repository has no account ids in them, they are committed (no `.env`).
 
-The Serverless guide only shows string values for parameters. Whether a YAML list resolves correctly through `${param:...}` into `allowedOrigins` is **not verified by this spec**. The first implementation commit proves it with `serverless print --stage <stage>` (output must show a list). If it does not resolve, the fallback is a plain file per stage (`config/cors-origins.<stage>.yml`, loaded with `${file(...)}`), which also fits the config split of spec 0011. The tests and acceptance criteria are written against the resolved result, so either mechanism passes them.
+The Serverless guide only shows string values for parameters. Whether a YAML list resolves correctly through `${param:...}` into `allowedOrigins` is **not verified by this spec**. The first implementation commit proves it with `serverless print --stage <stage>` (output must show a list). If it does not resolve, the fallback is a plain file per stage (`config/cors-origins.<stage>.yml`, loaded with `${file(...)}`), which fits the split configuration of spec 0011 (merged). The tests and acceptance criteria are written against the resolved result, so either mechanism passes them.
 
 ### Header, method and age choices
 
