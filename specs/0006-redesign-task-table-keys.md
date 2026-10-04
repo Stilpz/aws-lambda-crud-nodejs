@@ -1,6 +1,6 @@
 # 0006: Redesign the task table keys
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `redesign-task-table-keys`, stacked on `migrate-orphan-task-owners` (step 4) because it edits the same specs index, roadmap table and README migration section; merge #21 and step 4 first
 - **Roadmap step:** 5 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
