@@ -21,6 +21,10 @@ frameworkVersion: "4"
 # Origins that may call the API from a browser, one list per stage. A stage that is not listed
 # (a personal stage in a fork) gets the local development origin only. Replace the example.com
 # placeholders with the real frontend domains when they exist.
+#
+# Sign-in for the single-page app (spec 0015): the exact URLs the hosted sign-in may redirect to
+# after login (spaCallbackUrls) and after logout (spaLogoutUrls). Cognito accepts https URLs, and
+# http only for localhost, so only the default stage lists a local one.
 stages:
   default:
     params:
@@ -39,6 +43,10 @@ stages:
       throttleBurst: 100
       webOrigins:
         - http://localhost:5173
+      spaCallbackUrls:
+        - http://localhost:5173/auth/callback
+      spaLogoutUrls:
+        - http://localhost:5173/
   dev:
     params:
       logRetentionInDays: 7
@@ -58,10 +66,18 @@ stages:
     params:
       webOrigins:
         - https://staging.app.example.com
+      spaCallbackUrls:
+        - https://staging.app.example.com/auth/callback
+      spaLogoutUrls:
+        - https://staging.app.example.com/
   prod:
     params:
       webOrigins:
         - https://app.example.com
+      spaCallbackUrls:
+        - https://app.example.com/auth/callback
+      spaLogoutUrls:
+        - https://app.example.com/
 
 provider:
   name: aws
