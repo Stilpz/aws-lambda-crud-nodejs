@@ -91,8 +91,9 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   ├── auth.js         # Reads the caller's user id from the JWT claims
 │   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
 │   ├── schemas.js      # JSON Schemas for the create and update bodies
-│   ├── pagination.js   # limit and nextToken handling for GET /tasks
-│   └── db.js           # Shared DynamoDB document client
+│   ├── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
+│   ├── domain/         # Task type, domain errors and the TaskRepository port (imports nothing else)
+│   └── infrastructure/ # DynamoTaskRepository, the DynamoDB client and the composition root
 └── tests/              # Vitest unit tests; DynamoDB is mocked, nothing reaches AWS
 ```
 

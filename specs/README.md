@@ -45,6 +45,6 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | Spec | Title | Status |
 | --- | --- | --- |
 | [0000](0000-roadmap-to-layered-architecture.md) | Roadmap to a layered architecture and a React-ready API | Approved |
-| [0001](0001-extract-task-repository-port.md) | Extract the task repository port | Approved |
+| [0001](0001-extract-task-repository-port.md) | Extract the task repository port | Implemented |
 
 Specs are written in English and are not translated: they are contracts, and one authoritative text avoids divergence.

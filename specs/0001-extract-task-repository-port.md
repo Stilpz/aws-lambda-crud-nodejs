@@ -1,10 +1,10 @@
 # 0001: Extract the task repository port
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Amendments:** 1 (see below)
 - **Branch:** `extract-task-repository-port` (started from the `v1.0.0` tag, whose commit contains `development`)
 - **Roadmap step:** 1 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** to be filled when opened (branch `extract-task-repository-port`)
 - **Supersedes / depends on:** none
 
 ## Context
@@ -87,15 +87,15 @@ Behavior the port promises, which every implementation must honor:
 
 ## Acceptance criteria
 
-- [ ] The existing handler tests (`addTask`, `getTask`, `getTasks`, `updateTask`, `deleteTask`) and the `limit` cases of `tests/pagination.test.js` pass with their assertions unchanged. The only other allowed edit in existing tests is the client import path in `tests/helpers.js`.
-- [ ] The cursor cases of `tests/pagination.test.js` (decoding, ignoring a smuggled owner, round trip, invalid tokens) are removed from that file because the logic moved; each one is covered by an equivalent test in `tests/dynamoTaskRepository.test.js`.
-- [ ] New `DynamoTaskRepository` tests cover each method: success, ownership mismatch, `TaskNotFoundError`, cursor round trip, `InvalidCursorError`, ignoring non-updatable fields, and propagation of infrastructure errors.
-- [ ] No file in `src/*.js` handlers imports `@aws-sdk/*` or the client; only `src/infrastructure/` does.
-- [ ] `src/domain/` imports nothing from `src/infrastructure/` or handlers.
-- [ ] The DynamoDB request parameters produced by each operation are identical to the current ones (proved by the unchanged handler tests plus the repository tests).
-- [ ] `git diff v1.0.0 -- serverless.yml docs/openapi.yaml` is empty.
-- [ ] `npm run lint` and `npm test` pass.
-- [ ] The pull request links this spec and states it matches it.
+- [x] The existing handler tests (`addTask`, `getTask`, `getTasks`, `updateTask`, `deleteTask`) and the `limit` cases of `tests/pagination.test.js` pass with their assertions unchanged. The only other allowed edit in existing tests is the client import path in `tests/helpers.js`.
+- [x] The cursor cases of `tests/pagination.test.js` (decoding, ignoring a smuggled owner, round trip, invalid tokens) are removed from that file because the logic moved; each one is covered by an equivalent test in `tests/dynamoTaskRepository.test.js`.
+- [x] New `DynamoTaskRepository` tests cover each method: success, ownership mismatch, `TaskNotFoundError`, cursor round trip, `InvalidCursorError`, ignoring non-updatable fields, and propagation of infrastructure errors.
+- [x] No file in `src/*.js` handlers imports `@aws-sdk/*` or the client; only `src/infrastructure/` does.
+- [x] `src/domain/` imports nothing from `src/infrastructure/` or handlers.
+- [x] The DynamoDB request parameters produced by each operation are identical to the current ones (proved by the unchanged handler tests plus the repository tests).
+- [x] `git diff v1.0.0 -- serverless.yml docs/openapi.yaml` is empty.
+- [x] `npm run lint` and `npm test` pass.
+- [ ] The pull request links this spec and states it matches it (pending: the pull request is not opened yet).
 
 ## Verification
 
