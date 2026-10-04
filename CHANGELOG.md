@@ -4,7 +4,7 @@ All notable changes to the Tasks API and its deployment are recorded here. The f
 
 ## [Unreleased]
 
-Planned as `1.2.0`: the changes below are merged to `development` and not yet released. Compatibility class: **operational** (the contract is unchanged; see Upgrade notes).
+Planned as `1.2.0`: the changes below are merged to `development` and not yet released. Compatibility class: **operational** for the table change (see Upgrade notes) and **non-breaking** for the new `PATCH` route and the deprecation of `PUT`; the highest class is minor, so `1.2.0` stands.
 
 ### Added
 
@@ -15,12 +15,18 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - CORS on the HTTP API with explicit origins per stage (`stages.<stage>.params.webOrigins`), the `Authorization` and `Content-Type` headers, the methods of the API and the exposed `Deprecation` and `Sunset` headers; no wildcard and no credentials ([spec 0013](specs/0013-add-explicit-cors-origins.md)). Browsers on an allowed origin can now call the API.
 - The API versioning and deprecation policy, [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md), and this changelog ([spec 0017](specs/0017-define-api-versioning-policy.md)).
 
+- `PATCH /tasks/{id}`: the partial update, answering `200` with the updated task. It takes the same body and has the same errors as `PUT` ([spec 0012](specs/0012-add-patch-task-route.md)).
+
 ### Changed
 
 - `GET /tasks` is now strongly consistent: a task created or updated is listed immediately. Before, the listing read a secondary index and could miss a task created a moment earlier.
 - New task ids are time-sortable UUIDs (version 7) instead of random version 4 UUIDs. Ids stay UUIDs, as `docs/openapi.yaml` declares (`format: uuid`); clients must treat them as opaque.
 - The table is keyed by `ownerId` (partition) and `id` (sort) and has no secondary index. It is named `Tasks-<stage>`, and the IAM policy no longer grants access to index resources.
 - `docs/openapi.yaml` `info.version` is `1.2.0`, and its description links the stability policy and states that pagination tokens are opaque and not valid across deployments (this was `1.0.0` at the releases `1.0.0` and `1.1.0`).
+
+### Deprecated
+
+- `PUT /tasks/{id}`, in favor of `PATCH /tasks/{id}`. It keeps working unchanged; every response carries `Deprecation: @1790985600`, `Sunset: Sat, 03 Apr 2027 00:00:00 GMT` and a `Link` header with `rel="deprecation"`. It may be removed after the sunset date, in a release announced in this changelog ([spec 0012](specs/0012-add-patch-task-route.md)). To migrate, change the verb to `PATCH`.
 
 ### Removed
 

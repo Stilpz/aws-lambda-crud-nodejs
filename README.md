@@ -91,10 +91,12 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   │   ├── addTask.js      # POST   /tasks        create a task
 │   │   ├── getTasks.js     # GET    /tasks        list the caller's tasks
 │   │   ├── getTask.js      # GET    /tasks/{id}   fetch one task
-│   │   ├── updateTask.js   # PUT    /tasks/{id}   partially update a task
+│   │   ├── patchTask.js    # PATCH  /tasks/{id}   partially update a task, answers with the task
+│   │   ├── updateTask.js   # PUT    /tasks/{id}   the same update, deprecated (adds the deprecation headers)
 │   │   ├── deleteTask.js   # DELETE /tasks/{id}   delete a task
 │   │   ├── auth.js         # Reads the caller's user id from the JWT claims
 │   │   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
+│   │   ├── deprecation.js  # Adds the Deprecation, Sunset and Link headers to a deprecated route
 │   │   ├── errorBoundary.js # The one place that maps domain and input errors to HTTP
 │   │   ├── schemas.js      # JSON Schemas for the create and update bodies
 │   │   └── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
@@ -293,15 +295,38 @@ curl -H "Authorization: Bearer $TOKEN" $API_URL/tasks/0b9f5c1e-6c2a-4f0e-9d0b-2f
 | 404 | `Task not found`, or the task belongs to another user |
 | 500 | `Could not retrieve task` |
 
-### `PUT /tasks/{id}`: update a task
+### `PATCH /tasks/{id}`: update a task
 
-Requests must use `Content-Type: application/json`. Partial update: send any combination of the following fields, and only the fields you send are changed. At least one is required, and other fields are ignored.
+Requests must use `Content-Type: application/json`. Partial update: send any combination of the following fields, and only the fields you send are changed. At least one is required, and other fields are ignored. The response is the task as it is after the change.
 
 | Field | Validation |
 | --- | --- |
 | `done` | boolean |
 | `title` | non-empty string |
 | `description` | string |
+
+```bash
+curl -X PATCH $API_URL/tasks/0b9f5c1e-6c2a-4f0e-9d0b-2f1f3f0a7a11 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"done":true}'
+```
+
+| Status | Meaning |
+| --- | --- |
+| 200 | The updated task, as in `GET /tasks/{id}` |
+| 400 | No updatable field was sent, or a field has an invalid value. The response lists the failing fields in `errors` |
+| 401 | Missing, invalid or expired token |
+| 404 | `Task not found`, or the task belongs to another user |
+| 415 | `Content-Type` is not `application/json` |
+| 422 | The body is not valid JSON |
+| 500 | `Could not update task` |
+
+### `PUT /tasks/{id}`: update a task (deprecated)
+
+**Deprecated: use `PATCH /tasks/{id}`.** It accepts the same body and does the same partial update, but answers with a message instead of the task. It keeps working unchanged until the sunset date, 2027-04-03, and may be removed after it. Every response of this route carries the headers that announce it ([deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal)): `Deprecation: @<unix seconds>`, `Sunset: <HTTP-date>` and `Link: <migration notes>; rel="deprecation"`. To migrate, change the verb to `PATCH`; nothing else in the request changes.
+
+Requests must use `Content-Type: application/json`. Partial update with the same fields and validation as `PATCH`.
 
 ```bash
 curl -X PUT $API_URL/tasks/0b9f5c1e-6c2a-4f0e-9d0b-2f1f3f0a7a11 \
@@ -412,7 +437,7 @@ const task = await api("/tasks", {
   body: JSON.stringify({ title: "Write docs", description: "Add a README" }),
 });
 
-await api(`/tasks/${task.id}`, { token, method: "PUT", body: JSON.stringify({ done: true }) });
+await api(`/tasks/${task.id}`, { token, method: "PATCH", body: JSON.stringify({ done: true }) });
 
 for await (const item of listTasks(token)) {
   console.log(item.title, item.done);
@@ -423,7 +448,8 @@ await api(`/tasks/${task.id}`, { token, method: "DELETE" });
 
 ### Client rules of thumb
 
-- Send `Content-Type: application/json` on `POST` and `PUT`; otherwise the API answers `415`.
+- Send `Content-Type: application/json` on `POST`, `PATCH` and `PUT`; otherwise the API answers `415`.
+- Use `PATCH` to update a task. `PUT` is deprecated: watch for the `Deprecation` and `Sunset` response headers and migrate before the sunset date.
 - Treat `nextToken` as an opaque string: store it, send it back unchanged, and stop only when it is `null`.
 - Do not parse tokens or task ids; do not assume ids are sortable.
 - Do not retry `4xx` responses other than a single retry after refreshing a `401`. `5xx` responses are safe to retry for `GET` and `DELETE`; a retried `POST` can create a duplicate task because the API has no idempotency key.
@@ -456,7 +482,7 @@ The answer repeats the allowed origin exactly; an origin that is not on the list
 
 ## Error Model
 
-Errors from the functions have the shape `{ "message": "..." }`. Validation errors (`400` on `POST` and `PUT`) add the failing fields:
+Errors from the functions have the shape `{ "message": "..." }`. Validation errors (`400` on `POST`, `PATCH` and `PUT`) add the failing fields:
 
 ```json
 {
@@ -568,7 +594,7 @@ This is a learning-oriented project, so it leaves out several things a productio
 
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
-- **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility. Its deprecation will follow the [deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal).
+- **`PUT /tasks/{id}` is deprecated.** It is a partial update (PATCH semantics) kept for compatibility until its sunset date, 2027-04-03; use `PATCH /tasks/{id}`. See the [deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal).
 - **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.
 - **Local invocation needs hand-written authorizer claims** and still uses the deployed table.
 
@@ -595,10 +621,10 @@ This is a learning-oriented project, so it leaves out several things a productio
 | `NotAuthorizedException: Incorrect username or password` | Wrong credentials, or the password was never set with `--permanent` |
 | `UserNotConfirmedException` | The user signed up but did not confirm the email. Confirm it, or recreate it with `admin-create-user` |
 | `400` with an `errors` list | The body failed validation. Read each entry, for example `/body must have required property 'title'` |
-| `415 Unsupported Media Type` | Add `-H "Content-Type: application/json"` to `POST` and `PUT` |
+| `415 Unsupported Media Type` | Add `-H "Content-Type: application/json"` to `POST`, `PATCH` and `PUT` |
 | `422 Invalid or malformed JSON` | The body is not valid JSON. In a Windows shell, quote the JSON with single quotes, or write it to a file and use `-d @file.json` |
 | `404 Task not found` on your own task | You are using another user's token, or the task was already deleted |
-| `500` | Read the logs: `serverless logs -f <function> --tail` (functions: `createTask`, `getTasks`, `getTask`, `updateTask`, `deleteTask`) |
+| `500` | Read the logs: `serverless logs -f <function> --tail` (functions: `createTask`, `getTasks`, `getTask`, `updateTask`, `patchTask`, `deleteTask`) |
 | `serverless deploy` asks you to log in | Serverless v4 needs `serverless login` or `SERVERLESS_ACCESS_KEY`, and a valid `org` in `serverless.yml` |
 | The deploy fails on the first run in a fork | Review [Configuration for Forks](#configuration-for-forks); the `org` value belongs to the original author |
 
