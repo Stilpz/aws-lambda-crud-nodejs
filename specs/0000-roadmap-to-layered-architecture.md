@@ -49,7 +49,7 @@ Each step gets its own spec, written and approved before the work starts, number
 | 9 | `harden-production-resources` | Retention, point-in-time recovery, deletion protection, throttling, per-function IAM |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files |
 | 11 | `add-patch-task-route` | `PATCH /tasks/{id}`; `PUT` kept and deprecated; optional idempotency key on `POST` |
-| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; Serverless v4 versus SAM or CDK |
+| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; Serverless v4 versus SAM or CDK. Spec [0016](0016-evaluate-typescript-migration.md); record [`docs/decisions/0001-typing-and-deployment-framework.md`](../docs/decisions/0001-typing-and-deployment-framework.md) |
 
 Suggested order: 1, 2, 4, 5, then 6 to 8, then 9 to 12. Steps 1 to 3 are low risk and unblock the rest. Step 5 is the only breaking change and needs a maintenance window plus the migration from step 4.
 
