@@ -1,14 +1,14 @@
 import { withJsonBody } from "./middleware.js";
 import { updateTaskSchema } from "./schemas.js";
 import { getOwnerId } from "./auth.js";
+import { updateTask as changeTask } from "./container.js";
 import { TaskNotFoundError } from "./domain/errors.js";
-import { taskRepository } from "./infrastructure/taskRepository.js";
 
 const updateTaskHandler = async (event) => {
     const { id } = event.pathParameters;
 
     try {
-        await taskRepository.update(getOwnerId(event), id, event.body);
+        await changeTask({ ownerId: getOwnerId(event), id, changes: event.body });
 
         return {
             statusCode: 200,
