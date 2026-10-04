@@ -15,8 +15,9 @@
  *   Promise<{ items: import("./task.js").Task[], nextCursor: string | null }>} listByOwner
  *   The owner's tasks, oldest first. `cursor` is opaque; one that cannot be decoded rejects with
  *   `InvalidCursorError`. `nextCursor` is `null` when there are no more pages.
- * @property {(ownerId: string, id: string, changes: Partial<import("./task.js").Task>) => Promise<void>} update
- *   Changes only the fields listed in `UPDATABLE_FIELDS`. Rejects with `TaskNotFoundError`.
+ * @property {(ownerId: string, id: string, changes: Partial<import("./task.js").Task>) => Promise<import("./task.js").Task>} update
+ *   Changes only the fields listed in `UPDATABLE_FIELDS` and resolves the task as it is after the
+ *   change. Rejects with `TaskNotFoundError`.
  * @property {(ownerId: string, id: string) => Promise<void>} delete
  *   Rejects with `TaskNotFoundError`.
  *

@@ -115,6 +115,7 @@ functions:
   - ${file(./functions/getTasks.yml)}
   - ${file(./functions/getTask.yml)}
   - ${file(./functions/updateTask.yml)}
+  - ${file(./functions/patchTask.yml)}
   - ${file(./functions/deleteTask.yml)}
 
 resources:

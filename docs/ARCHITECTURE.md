@@ -62,7 +62,7 @@ All of these live in `DynamoTaskRepository` (`src/infrastructure/dynamoTaskRepos
 | `404` for other users' tasks | Does not reveal which ids exist | Slightly harder to debug a wrong token |
 | Conditional writes for update and delete | Atomic ownership check, no read-then-write race | Condition failures need mapping to `404` |
 | ESM + AWS SDK v3 | Required by middy 7; smaller, modular SDK | Node 22+ needed |
-| Validation with JSON Schema (Ajv) | One declarative source per body, used by `POST` and `PUT` | Messages come from Ajv, not hand-written |
+| Validation with JSON Schema (Ajv) | One declarative source per body, used by `POST`, `PATCH` and `PUT` | Messages come from Ajv, not hand-written |
 | CORS configured on the HTTP API, with explicit origins per stage | API Gateway answers preflights without a function or a token, and the policy is one reviewed list per stage instead of code in six handlers | API Gateway ignores CORS headers from functions, so the policy cannot vary per route; a `401` from the authorizer may carry no CORS header |
 | Stage-per-stack naming (`-<stage>`) | Stages share an account without touching each other's data or users | Resources are replaced if the naming changes |
 
@@ -82,7 +82,7 @@ Found while auditing the code against the documentation. Status is as of this do
 | F8 | `GET /tasks/{id}` used an eventually consistent read, so a task could be missing right after it was created | Fixed (`ConsistentRead`) |
 | F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)) and every use case requires `ownerId` ([spec 0003](../specs/0003-add-task-use-cases.md)). Error mapping now sits in one boundary ([spec 0004](../specs/0004-standardize-error-responses.md)) |
 | F10 | No observability, deploy pipeline or production safeguards (retention, point-in-time recovery, deletion protection) | Partly resolved: observability and log retention in [spec 0009](../specs/0009-add-observability-with-powertools.md); retention, recovery, deletion protection, throttling, per-function IAM and MFA in [spec 0010](../specs/0010-harden-production-resources.md); CORS is fixed with explicit origins per stage ([spec 0013](../specs/0013-add-explicit-cors-origins.md)); the deploy pipeline remains open (roadmap step 8) |
-| F11 | `PUT` has PATCH semantics; `POST` is not idempotent | Open; roadmap step 11 |
+| F11 | `PUT` has PATCH semantics; `POST` is not idempotent | Partly fixed: `PATCH /tasks/{id}` is the partial update and `PUT` is deprecated with `Deprecation`, `Sunset` and `Link` headers ([spec 0012](../specs/0012-add-patch-task-route.md)). `POST` idempotency is open: roadmap step 11b |
 
 ## 5. Target architecture
 
@@ -143,7 +143,7 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy | Deploy to dev from CI |
 | 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev. **Done** for retention, recovery, deletion protection, throttling, per-function IAM, MFA and the password flow, [spec 0010](../specs/0010-harden-production-resources.md); CORS and the browser sign-in client are separate specs | Template validation; deploy to staging |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files. **Done**, [spec 0011](../specs/0011-split-serverless-config-files.md); implemented before steps 6 and 9 | `serverless print` output unchanged |
-| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated | OpenAPI and tests |
+| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates, answering with the updated task; `PUT` kept and marked deprecated (sunset 2027-04-03). **Done**, [spec 0012](../specs/0012-add-patch-task-route.md) | OpenAPI and tests |
 | 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live (its spec is still to be written) | Retried `POST` creates one task |
 | 12 | `evaluate-typescript-migration` | Decision record: JSDoc types checked with `tsc` (no TypeScript migration) and Serverless v4 kept, with SAM as the fallback. **Done**, [spec 0016](../specs/0016-evaluate-typescript-migration.md), [record](decisions/0001-typing-and-deployment-framework.md) | Decision record in `docs/decisions/` |
 

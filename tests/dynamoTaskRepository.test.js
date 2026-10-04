@@ -156,6 +156,12 @@ describe("update", () => {
         });
     });
 
+    it("resolves the item DynamoDB returns after the change", async () => {
+        client.send.mockResolvedValue({ Attributes: { ...task, done: true } });
+
+        expect(await repository.update(OWNER, "task-1", { done: true })).toEqual({ ...task, done: true });
+    });
+
     it("ignores fields that cannot be updated", async () => {
         await repository.update(OWNER, "task-1", { title: "New", done: false, id: "hacked", ownerId: "victim", createdAt: "x" });
 

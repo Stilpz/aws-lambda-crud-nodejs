@@ -158,7 +158,8 @@ else
   failures=$((failures + 1))
 fi
 status 404 "B cannot read A's task" "${auth_b[@]}" "$API_URL/tasks/$task_id"
-status 404 "B cannot update A's task" -X PUT "${auth_b[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id"
+status 404 "B cannot patch A's task" -X PATCH "${auth_b[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id"
+status 404 "B cannot update A's task (PUT, deprecated)" -X PUT"${auth_b[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id"
 status 404 "B cannot delete A's task" -X DELETE "${auth_b[@]}" "$API_URL/tasks/$task_id"
 
 status 200 "B lists tasks" "${auth_b[@]}" "$API_URL/tasks"
@@ -169,7 +170,31 @@ else
   failures=$((failures + 1))
 fi
 
-status 200 "A updates own task" -X PUT "${auth_a[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id"
+status 200 "A patches own task" -X PATCH "${auth_a[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id"
+if [[ "$(json_field done < "$BODY_FILE")" == "true" && "$(json_field id < "$BODY_FILE")" == "$task_id" ]]; then
+  echo "ok   PATCH answers with the updated task"
+else
+  echo "FAIL PATCH did not answer with the updated task: $(cat "$BODY_FILE")"
+  failures=$((failures + 1))
+fi
+status 200 "A updates own task (PUT, deprecated)" -X PUT "${auth_a[@]}" "${json[@]}" -d '{"done":false}' "$API_URL/tasks/$task_id"
+
+put_headers="$(curl -s -D - -o /dev/null -X PUT "${auth_a[@]}" "${json[@]}" -d '{"done":false}' "$API_URL/tasks/$task_id" | tr -d '\r')"
+for name in deprecation sunset link; do
+  if grep -qi "^$name:" <<< "$put_headers"; then
+    echo "ok   PUT announces its deprecation with the $name header"
+  else
+    echo "FAIL PUT response is missing the $name header"
+    failures=$((failures + 1))
+  fi
+done
+patch_headers="$(curl -s -D - -o /dev/null -X PATCH "${auth_a[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id" | tr -d '\r')"
+if grep -qi "^deprecation:" <<< "$patch_headers"; then
+  echo "FAIL PATCH must not announce a deprecation"
+  failures=$((failures + 1))
+else
+  echo "ok   PATCH carries no deprecation header"
+fi
 status 200 "A deletes own task" -X DELETE "${auth_a[@]}" "$API_URL/tasks/$task_id"
 task_id=""
 

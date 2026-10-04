@@ -27,7 +27,7 @@ const COMMANDS = {
 
 // Replaces the document client's send() so no request reaches AWS. Returns a spy that is
 // called with the input of every command of the given kind ("put", "get", ...) it receives.
-export const mockDynamo = (method, { result, error } = {}) => {
+export const mockDynamo = (method, { result = {}, error } = {}) => {
     const spy = vi.fn();
 
     vi.spyOn(dynamoDb, "send").mockImplementation(async (command) => {
