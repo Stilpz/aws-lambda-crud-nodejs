@@ -53,6 +53,8 @@ Each step gets its own spec, written and approved before the work starts, number
 
 Suggested order: 1, 2, 4, 5, then 6 to 8, then 9 to 12. Steps 1 to 3 are low risk and unblock the rest. Step 5 is the only breaking change and needs a maintenance window plus the migration from step 4.
 
+Amendment: step 10 (`split-serverless-config-files`) is implemented before steps 6 and 9, so the runtime chain runs 10, 6, 9. Steps 6 and 9 and the frontend track add to `serverless.yml`; splitting it first keeps those changes in small files and removes merge conflicts between their branches. The step numbers and branch names do not change. Approved by the maintainer with specs 0009, 0010 and [0011](0011-split-serverless-config-files.md).
+
 ## Frontend readiness track (React)
 
 The frontend comes after the API is stable. These items prepare the ground; each becomes its own spec and branch when started, and none starts before step 2 is merged.
