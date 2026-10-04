@@ -1,6 +1,6 @@
 # 0009: Add observability with Powertools for AWS Lambda
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `add-observability-with-powertools` (started from `development`)
 - **Roadmap step:** 6 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened

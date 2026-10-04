@@ -47,12 +47,12 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0000](0000-roadmap-to-layered-architecture.md) | Roadmap to a layered architecture and a React-ready API | Approved |
 | [0001](0001-extract-task-repository-port.md) | Extract the task repository port | Implemented |
 | [0002](0002-keep-claude-md-local.md) | Keep CLAUDE.md local and move the shared agent rules to AGENTS.md | Implemented |
-| [0009](0009-add-observability-with-powertools.md) | Add observability with Powertools for AWS Lambda | Draft |
 | [0003](0003-add-task-use-cases.md) | Add task use cases and thin handlers | Implemented |
 | [0004](0004-standardize-error-responses.md) | Standardize error responses behind one boundary | Implemented |
 | [0005](0005-migrate-orphan-task-owners.md) | Migrate tasks that have no owner | Superseded by 0006 |
 | [0006](0006-redesign-task-table-keys.md) | Redesign the task table keys | Implemented |
 | [0007](0007-add-ci-quality-gates.md) | Add CI quality gates | Implemented |
+| [0009](0009-add-observability-with-powertools.md) | Add observability with Powertools for AWS Lambda | Approved |
 | [0011](0011-split-serverless-config-files.md) | Split serverless.yml into resources and functions files | Implemented |
 | [0016](0016-evaluate-typescript-migration.md) | Evaluate a TypeScript migration and the deployment framework | Implemented |
 | [0017](0017-define-api-versioning-policy.md) | Define the API versioning and deprecation policy | Implemented |
