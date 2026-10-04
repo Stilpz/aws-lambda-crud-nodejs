@@ -1,24 +1,19 @@
-import { DeleteCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDb } from "./db.js";
 import { getOwnerId } from "./auth.js";
+import { TaskNotFoundError } from "./domain/errors.js";
+import { taskRepository } from "./infrastructure/taskRepository.js";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
 
     try {
-        await dynamoDb.send(new DeleteCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { id },
-            ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
-            ExpressionAttributeValues: { ":ownerId": getOwnerId(event) },
-        }));
+        await taskRepository.delete(getOwnerId(event), id);
 
         return {
             statusCode: 200,
             body: JSON.stringify({ message: "Task deleted successfully" }),
         };
     } catch (error) {
-        if (error.name === "ConditionalCheckFailedException") {
+        if (error instanceof TaskNotFoundError) {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ message: "Task not found" }),
