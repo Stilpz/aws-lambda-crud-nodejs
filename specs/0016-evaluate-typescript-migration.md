@@ -1,6 +1,6 @@
 # 0016: Evaluate a TypeScript migration and the deployment framework
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `evaluate-typescript-migration` (started from `development`)
 - **Roadmap step:** 12 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -120,17 +120,17 @@ These are recommendations; the record states the weights and the scores, and the
 
 ## Acceptance criteria
 
-- [ ] The record exists at `docs/decisions/0001-typing-and-deployment-framework.md` and has the sections Status, Context, Decision drivers, Options, Decision, Consequences and Revisit triggers.
-- [ ] It states the criteria and their weights before the scores, and compares all three typing options and all three frameworks against every criterion, with one sentence of evidence per cell.
-- [ ] Table A and table B of this spec are reflected, with each "what changes" cell checked against the repository (`serverless.yml`, handler paths, packaging, `scripts/smoke.sh`, `.github/workflows/ci.yml`).
-- [ ] Every external fact (pricing, revenue threshold, `org` optionality, esbuild in Serverless and SAM, runtime deprecation date, npm versions) lists its source URL and the date it was checked, and unverified items are labelled unverified.
-- [ ] The `tsc` trial numbers (with and without `strict`, `src/` and `tests/`) are in the record, with the TypeScript version used.
-- [ ] The record names the decision for each part, the consequences for specs 0008, 0010 and 0014, and at least three observable revisit triggers.
-- [ ] A migration sketch exists for the runner-up of each part.
-- [ ] The "Open decisions" items in `docs/ARCHITECTURE.md` that this record resolves are replaced by a link to it, and roadmap row 12 is marked done in `docs/ARCHITECTURE.md` and in spec 0000 without changing order.
-- [ ] The Spanish references carry the same headings, rows and code blocks as the English files that changed.
-- [ ] No file under `src/`, `tests/`, `scripts/`, `.github/`, `serverless.yml` or `package.json` changed.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] The record exists at `docs/decisions/0001-typing-and-deployment-framework.md` and has the sections Status, Context, Decision drivers, Options, Decision, Consequences and Revisit triggers.
+- [x] It states the criteria and their weights before the scores, and compares all three typing options and all three frameworks against every criterion, with one sentence of evidence per cell.
+- [x] Table A and table B of this spec are reflected, with each "what changes" cell checked against the repository (`serverless.yml`, handler paths, packaging, `scripts/smoke.sh`, `.github/workflows/ci.yml`).
+- [x] Every external fact (pricing, revenue threshold, `org` optionality, esbuild in Serverless and SAM, runtime deprecation date, npm versions) lists its source URL and the date it was checked, and unverified items are labelled unverified.
+- [x] The `tsc` trial numbers (with and without `strict`, `src/` and `tests/`) are in the record, with the TypeScript version used.
+- [x] The record names the decision for each part, the consequences for specs 0008, 0010 and 0014, and at least three observable revisit triggers.
+- [x] A migration sketch exists for the runner-up of each part.
+- [x] The "Open decisions" items in `docs/ARCHITECTURE.md` that this record resolves are replaced by a link to it, and roadmap row 12 is marked done in `docs/ARCHITECTURE.md` and in spec 0000 without changing order.
+- [ ] The Spanish references carry the same headings, rows and code blocks as the English files that changed. (Untracked files, mirrored by the maintainer after this change.)
+- [x] No file under `src/`, `tests/`, `scripts/`, `.github/`, `serverless.yml` or `package.json` changed.
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 
