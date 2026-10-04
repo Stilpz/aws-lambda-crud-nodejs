@@ -104,6 +104,25 @@ Testing follows the layers: use cases run against an in-memory repository (fast,
 
 Scope boundary: this stays a single service. Splitting into services, a message bus or CQRS is not justified by the current size.
 
+### Frontend
+
+The React frontend will live in `web/` in this repository, self-contained and not an npm workspace, and is decided in [record 0002](decisions/0002-frontend-repository-layout.md) ([spec 0018](../specs/0018-decide-frontend-repository-layout.md)). It is not built yet.
+
+```
+Browser ──▶ CloudFront (OAC) ──▶ private S3 bucket          web stack, one per stage
+   │
+   └─ HTTPS + JWT ──▶ API Gateway (HTTP API) ──▶ Lambda ──▶ DynamoDB      API stack
+```
+
+| Concern | Choice |
+| --- | --- |
+| Location | `web/` with its own `package.json` and lockfile; the only shared artifact is `docs/openapi.yaml` |
+| Tooling | TypeScript, Vite, React, Vitest with Testing Library |
+| Hosting | Private S3 bucket and CloudFront with origin access control, one pair per stage, in a separate CloudFormation stack |
+| Deploy order | Web infrastructure stack, then API stack (CORS origins and callback URLs), then web content |
+| Configuration | Build-time `VITE_*` values per stage taken from stack outputs; none is a secret |
+| CI | A second `web` job in `ci.yml`; `lint-and-test` unchanged |
+
 ## 6. Roadmap
 
 The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architecture.md); this table is a summary. Every step is delivered under its own approved spec in [`specs/`](../specs/README.md), which fixes its scope, acceptance criteria and commit plan, and a change that is not in its spec is drift. Each step is its own branch, started from `development`, with its own pull request to `development` and small atomic commits.
@@ -120,13 +139,15 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy | Deploy to dev from CI |
 | 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, explicit CORS origins, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev | Template validation; deploy to staging |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files. **Done**, [spec 0011](../specs/0011-split-serverless-config-files.md); implemented before steps 6 and 9 | `serverless print` output unchanged |
-| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated; optional idempotency key on `POST` | OpenAPI and tests |
-| 12 | `evaluate-typescript-migration` | Decision record: TypeScript or JSDoc types; and Serverless v4 (needs an account and org) versus SAM or CDK | Decision record in `docs/` |
+| 11 | `add-patch-task-route` | `PATCH /tasks/{id}` for partial updates; `PUT` kept and marked deprecated | OpenAPI and tests |
+| 11b | `add-post-idempotency-key` | Optional idempotency key on `POST`, stored in its own table with a time to live (its spec is still to be written) | Retried `POST` creates one task |
+| 12 | `evaluate-typescript-migration` | Decision record: JSDoc types checked with `tsc` (no TypeScript migration) and Serverless v4 kept, with SAM as the fallback. **Done**, [spec 0016](../specs/0016-evaluate-typescript-migration.md), [record](decisions/0001-typing-and-deployment-framework.md) | Decision record in `docs/decisions/` |
 
-Suggested order: 1, 2, 4, 5 (data model), 6, 7, 8 (operations), then 9 to 12 (step 10 was moved ahead of 6 and 9, see spec 0000). Steps 1 to 3 are low risk and unblock the rest. Step 5 is the only breaking change: it needs a maintenance window and the migration from step 4.
+Suggested order, as amended in [spec 0000](../specs/0000-roadmap-to-layered-architecture.md): steps 1 to 5 are done. For the rest, first the work that touches no deployed infrastructure (step 7 and the decision records), then the config split (step 10), observability (step 6) and hardening (step 9), in that order because all three edit the same file, then the deployment pipeline (step 8), and finally CORS, the PATCH route, the typed client and the SPA client.
 
 ## 7. Open decisions
 
-- Keep the `{ message }` error shape, or adopt RFC 9457 problem details (breaking for clients).
-- Whether to move away from Serverless Framework v4, which requires an account and an `org`, so forks without one cannot deploy as is.
+- Keep the `{ message }` error shape, or adopt RFC 9457 problem details. Kept for now ([spec 0004](../specs/0004-standardize-error-responses.md)); changing it is a breaking change under the [versioning policy](API_VERSIONING.md).
+- Resolved: what counts as a breaking change, how changes are deprecated, and how `info.version`, the git tags and the changelog relate are defined in [`API_VERSIONING.md`](API_VERSIONING.md) ([spec 0017](../specs/0017-define-api-versioning-policy.md)).
+- Resolved: Serverless Framework v4 stays, with SAM as the documented fallback, and the code stays JavaScript with JSDoc types checked by `tsc`; forks without a Serverless account still cannot deploy as is ([decision record](decisions/0001-typing-and-deployment-framework.md), [spec 0016](../specs/0016-evaluate-typescript-migration.md)).
 - Resolved: the listing no longer uses a GSI; it moved to the key redesign ([spec 0006](../specs/0006-redesign-task-table-keys.md)).
