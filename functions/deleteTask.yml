@@ -1,0 +1,8 @@
+deleteTask:
+  handler: src/handlers/deleteTask.deleteTask
+  events:
+    - httpApi:
+        path: /tasks/{id}
+        method: delete
+        authorizer:
+          name: cognitoAuthorizer

@@ -8,7 +8,7 @@ An agent may also keep a local, git-ignored `CLAUDE.md` with the project definit
 
 Serverless Tasks API: AWS Lambda (Node.js 24, ES modules, `arm64`) behind an API Gateway HTTP API with a Cognito JWT authorizer, DynamoDB storage, deployed with Serverless Framework v4. Each user sees only their own tasks. A React frontend will consume it later. Release baseline: tag `v1.0.0`.
 
-Where things are: `src/` code, `tests/` Vitest tests, `serverless.yml` infrastructure, `docs/openapi.yaml` API contract, `docs/ARCHITECTURE.md` design and findings, `specs/` change contracts, `scripts/smoke.sh` post-deploy check.
+Where things are: `src/` code, `tests/` Vitest tests, `serverless.yml` infrastructure (service and provider) with `functions/` and `resources/` included from it, `docs/openapi.yaml` API contract, `docs/ARCHITECTURE.md` design and findings, `specs/` change contracts, `scripts/smoke.sh` post-deploy check.
 
 Commands:
 
@@ -84,6 +84,7 @@ Target layers (spec 0000): `handlers → application (use cases) → domain`, wi
 
 - English files are authoritative. Spanish references (`README.es.md`, `CONTRIBUTING.es.md`, `docs/ARCHITECTURE.es.md`) are untracked (excluded through `.git/info/exclude`) and must keep the same headings, table rows and code blocks as their English file. Update them whenever the English file changes.
 - Changing a route, status code or field updates `docs/openapi.yaml` and the README API tables in the same change.
+- Contract changes follow `docs/API_VERSIONING.md`: the spec names the class of change (breaking, non-breaking, fix or operational), and `CHANGELOG.md` gets an entry under `Unreleased`.
 - Specs are English only and are not translated.
 
 ## Security and safety
@@ -109,3 +110,4 @@ Target layers (spec 0000): `handlers → application (use cases) → domain`, wi
 - Spec process and template: `specs/README.md`, `specs/TEMPLATE.md`
 - Design, decisions and review findings: `docs/ARCHITECTURE.md`
 - Contributor workflow for forks: `CONTRIBUTING.md`
+- Where the frontend lives and how it ships: `docs/decisions/0002-frontend-repository-layout.md`

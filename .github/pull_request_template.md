@@ -21,5 +21,6 @@
 - [ ] `npm run lint` and `npm test` pass
 - [ ] New behavior has tests
 - [ ] `docs/openapi.yaml` and the README are updated if the API changed
+- [ ] If the API or its behavior changed, the change is classified under `docs/API_VERSIONING.md` and `CHANGELOG.md` has an entry under `Unreleased`
 - [ ] Data access is scoped to the caller (`getOwnerId`)
 - [ ] No credentials, tokens or `.env` files are included
