@@ -111,8 +111,8 @@ for f in addTask getTask getTasks updateTask deleteTask; do node --input-type=mo
 2. Add CLAUDE.md and AGENTS.md describing the spec-driven workflow.
 3. Point the contributor docs, PR template and architecture notes at the specs.
 4. Add the domain errors, task type and repository port.
-5. Add `DynamoTaskRepository` and its tests, and move the client under `src/infrastructure/`.
-6. Route the handlers through the repository and move cursor handling into it.
+5. Add `DynamoTaskRepository` and its tests.
+6. Route the handlers through the repository, move cursor handling into it, and move the client under `src/infrastructure/`.
 7. Mark this spec Implemented and update the architecture notes and README tree.
 
 ## Risks and rollback
