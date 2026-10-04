@@ -99,6 +99,13 @@ status 400 "POST without a title is rejected" -X POST "${auth_a[@]}" "${json[@]}
 status 415 "POST with a non-JSON content type is rejected" -X POST "${auth_a[@]}" -H "Content-Type: text/plain" -d 'x' "$API_URL/tasks"
 
 status 200 "A reads own task" "${auth_a[@]}" "$API_URL/tasks/$task_id"
+status 200 "A lists tasks right after creating one" "${auth_a[@]}" "$API_URL/tasks"
+if [[ "$(node -e 'const id = process.argv[1]; console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).items.some((task) => task.id === id))' "$task_id" < "$BODY_FILE")" == "true" ]]; then
+  echo "ok   A's new task is in the listing immediately (consistent read)"
+else
+  echo "FAIL A's new task is missing from the listing right after it was created"
+  failures=$((failures + 1))
+fi
 status 404 "B cannot read A's task" "${auth_b[@]}" "$API_URL/tasks/$task_id"
 status 404 "B cannot update A's task" -X PUT "${auth_b[@]}" "${json[@]}" -d '{"done":true}' "$API_URL/tasks/$task_id"
 status 404 "B cannot delete A's task" -X DELETE "${auth_b[@]}" "$API_URL/tasks/$task_id"
