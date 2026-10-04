@@ -13,9 +13,8 @@ describe("deleteTask", () => {
         expect(response.statusCode).toBe(200);
         expect(del).toHaveBeenCalledWith({
             TableName: "TaskTable-test",
-            Key: { id: "task-1" },
-            ConditionExpression: "attribute_exists(id) AND ownerId = :ownerId",
-            ExpressionAttributeValues: { ":ownerId": "user-1" },
+            Key: { ownerId: "user-1", id: "task-1" },
+            ConditionExpression: "attribute_exists(id)",
         });
     });
 
