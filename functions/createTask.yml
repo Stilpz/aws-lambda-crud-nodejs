@@ -1,5 +1,13 @@
 createTask:
   handler: src/handlers/addTask.addTask
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+          Resource:
+            - !GetAtt TaskTable.Arn
   events:
     - httpApi:
         path: /tasks

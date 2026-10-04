@@ -1,4 +1,5 @@
 import { withJsonBody } from "./middleware.js";
+import { withObservability } from "./withObservability.js";
 import { withErrorMapping } from "./errorBoundary.js";
 import { withDeprecation } from "./deprecation.js";
 import { updateTaskSchema } from "./schemas.js";
@@ -24,10 +25,14 @@ const DEPRECATION = {
     noticeUrl: "https://github.com/Stilpz/aws-lambda-crud-nodejs/blob/main/CHANGELOG.md",
 };
 
-export const updateTask = withDeprecation(
-    withJsonBody(
-        withErrorMapping(updateTaskHandler, { logLabel: "Error updating task:", failureMessage: "Could not update task" }),
-        updateTaskSchema,
+// Observability is the outermost layer of every handler. The deprecation headers are added to the
+// finished response, so they also reach the 400, 415 and 422 answers built by the middleware.
+export const updateTask = withObservability(
+    withDeprecation(
+        withJsonBody(
+            withErrorMapping(updateTaskHandler, { logLabel: "Error updating task:", failureMessage: "Could not update task" }),
+            updateTaskSchema,
+        ),
+        DEPRECATION,
     ),
-    DEPRECATION,
 );

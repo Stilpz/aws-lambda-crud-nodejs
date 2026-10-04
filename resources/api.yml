@@ -1,0 +1,11 @@
+# Throttling for every route of the HTTP API, an abuse and cost guard. Throttled calls get 429 from
+# API Gateway before any function runs. The framework generates the stage (HttpApiStage); this
+# extension overrides its default route settings, which it replaces as a whole object, so
+# DetailedMetricsEnabled is restated with the value the framework generates.
+extensions:
+  HttpApiStage:
+    Properties:
+      DefaultRouteSettings:
+        DetailedMetricsEnabled: false
+        ThrottlingRateLimit: ${param:throttleRate}
+        ThrottlingBurstLimit: ${param:throttleBurst}
