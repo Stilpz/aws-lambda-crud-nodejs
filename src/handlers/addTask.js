@@ -1,4 +1,5 @@
 import { withJsonBody } from "./middleware.js";
+import { withObservability } from "./withObservability.js";
 import { withErrorMapping } from "./errorBoundary.js";
 import { createTaskSchema } from "./schemas.js";
 import { getOwnerId } from "./auth.js";
@@ -15,7 +16,9 @@ const addTaskHandler = async (event) => {
     };
 };
 
-export const addTask = withJsonBody(
-    withErrorMapping(addTaskHandler, { logLabel: "Error creating task:", failureMessage: "Could not create task" }),
-    createTaskSchema,
+export const addTask = withObservability(
+    withJsonBody(
+        withErrorMapping(addTaskHandler, { logLabel: "Error creating task:", failureMessage: "Could not create task" }),
+        createTaskSchema,
+    ),
 );

@@ -19,6 +19,7 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 - [Local Development](#local-development)
 - [Testing and Linting](#testing-and-linting)
 - [Deployment and Cleanup](#deployment-and-cleanup)
+- [Observability](#observability)
 - [Known Limitations](#known-limitations)
 - [Security Notes](#security-notes)
 - [Troubleshooting](#troubleshooting)
@@ -64,6 +65,7 @@ Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda functio
 | Authentication | Amazon Cognito user pool and app client, JWT authorizer on the HTTP API |
 | Request handling | [middy](https://middy.js.org/): JSON body parsing, JSON Schema validation (Ajv) and error handling |
 | SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
+| Observability | [Powertools for AWS Lambda](https://docs.powertools.aws.dev/lambda/typescript/latest/): JSON logs with a correlation id, X-Ray traces, a cold start metric, log retention and CloudWatch alarms |
 
 The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table.
 
@@ -73,7 +75,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 .
 ├── serverless.yml      # Service, provider (authorizer, IAM role, environment) and the includes below
 ├── functions/          # One file per Lambda function: handler and HTTP route
-├── resources/          # table.yml (DynamoDB) and auth.yml (Cognito user pool, app client, stack outputs)
+├── resources/          # table.yml (DynamoDB), auth.yml (Cognito user pool, app client, stack outputs) and observability.yml (alarm topic and alarms)
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
 ├── CONTRIBUTING.md     # Contribution guide for forks
@@ -96,11 +98,12 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   │   ├── auth.js         # Reads the caller's user id from the JWT claims
 │   │   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
 │   │   ├── errorBoundary.js # The one place that maps domain and input errors to HTTP
+│   │   ├── withObservability.js # Outermost wrapper of every handler: logger context, correlation id, tracing, cold start metric
 │   │   ├── schemas.js      # JSON Schemas for the create and update bodies
 │   │   └── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
 │   ├── application/    # One use case per operation: createTask, getTask, listTasks, updateTask, deleteTask
 │   ├── domain/         # Task type, domain errors and the TaskRepository port (imports nothing else)
-│   ├── infrastructure/ # DynamoTaskRepository and the DynamoDB client
+│   ├── infrastructure/ # DynamoTaskRepository, the (traced) DynamoDB client and the Powertools logger, metrics and tracer
 │   └── container.js    # Composition root: wires the use cases to the infrastructure
 └── tests/              # Vitest unit tests; DynamoDB is mocked, nothing reaches AWS
 ```
@@ -535,6 +538,33 @@ serverless remove                      # delete the whole stack
 Each stage has its own table, named `Tasks-<stage>`, and its own user pool, named `tasks-<stage>`, so stages can share an AWS account and region without touching each other's data or users.
 
 Upgrading from a version that used the table `TaskTable-<stage>` replaces it: the deploy creates `Tasks-<stage>` with the new key and deletes the old table, **and the tasks in it are lost**. Copy them first if they matter; the project does not provide a migration for this. Pagination tokens issued before the change are rejected with `400`, and new tasks get version 7 UUIDs.
+
+## Observability
+
+Every handler runs inside `withObservability` (`src/handlers/withObservability.js`), built on [Powertools for AWS Lambda](https://docs.powertools.aws.dev/lambda/typescript/latest/). Use cases and the domain log nothing: an unknown error is logged once, by the error boundary.
+
+| Signal | Where to look |
+| --- | --- |
+| Logs | CloudWatch Logs group `/aws/lambda/<service>-<stage>-<function>`, or `serverless logs -f <function> --tail` |
+| Traces | AWS X-Ray, service map and traces for the function; each DynamoDB call is a subsegment. API Gateway HTTP API does not appear in the trace, so a trace starts at the function |
+| Metrics | CloudWatch namespace `TasksApi`, metric `ColdStart` (dimensions `service`, `stage`), emitted on a container's first request. API Gateway and Lambda publish their own metrics as usual |
+| Alarms | CloudWatch alarms named `<service>-<stage>-api-5xx`, `-lambda-throttles` and `-api-latency-p95`, all notifying the SNS topic `<service>-<stage>-alarms` |
+
+**Log fields.** Each line is JSON with `level`, `message`, `timestamp`, `service`, `xray_trace_id`, `correlation_id` and the Lambda context (`cold_start`, `function_name`, `function_memory_size`, `function_arn`, `function_request_id`). Errors add an `error` object with `name`, `message`, `location` and `stack`; the stack stays in the logs and is never returned to a client. The incoming event, request body, headers and token are never logged.
+
+**Correlation id.** `correlation_id` is the API Gateway request id (`requestContext.requestId`), the same id API Gateway uses for the request, so a failure in the logs can be tied to one call.
+
+**Per stage.** Log retention is 7 days in `dev` and 90 days in every other stage; the log level is `DEBUG` in `dev` and `INFO` elsewhere. These are the `stages` parameters at the top of `serverless.yml`.
+
+**Alarms.** They fire on any `5xx` from the API in 5 minutes, any Lambda throttle (HTTP API publishes no throttle metric; throttled calls are `429`s counted in `4xx`) and a p95 latency above 1500 ms for 15 minutes. An idle API does not alarm. To receive them by email, deploy with the address as a parameter and confirm the subscription email AWS sends; the address is never committed:
+
+```bash
+serverless deploy --stage dev --param="alarmEmail=you@example.com"
+```
+
+Other subscribers (chat, paging) can be added to the same SNS topic without changing the alarms.
+
+**Adding a function.** Wrap its handler with `withObservability`, and add the function to the `LambdaThrottlesAlarm` metric list in `resources/observability.yml` (one entry per function).
 
 ## Known Limitations
 

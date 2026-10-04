@@ -1,4 +1,5 @@
 import { withJsonBody } from "./middleware.js";
+import { withObservability } from "./withObservability.js";
 import { withErrorMapping } from "./errorBoundary.js";
 import { updateTaskSchema } from "./schemas.js";
 import { getOwnerId } from "./auth.js";
@@ -15,7 +16,9 @@ const updateTaskHandler = async (event) => {
     };
 };
 
-export const updateTask = withJsonBody(
-    withErrorMapping(updateTaskHandler, { logLabel: "Error updating task:", failureMessage: "Could not update task" }),
-    updateTaskSchema,
+export const updateTask = withObservability(
+    withJsonBody(
+        withErrorMapping(updateTaskHandler, { logLabel: "Error updating task:", failureMessage: "Could not update task" }),
+        updateTaskSchema,
+    ),
 );

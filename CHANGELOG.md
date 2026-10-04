@@ -13,12 +13,14 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - A version 7 UUID generator in `src/infrastructure/uuidV7.js` ([spec 0006](specs/0006-redesign-task-table-keys.md)).
 - A smoke test check that a task appears in the listing immediately after it is created.
 - The API versioning and deprecation policy, [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md), and this changelog ([spec 0017](specs/0017-define-api-versioning-policy.md)).
+- Observability ([spec 0009](specs/0009-add-observability-with-powertools.md)): structured JSON logs with a `correlation_id` (the API Gateway request id), X-Ray tracing including DynamoDB calls, a `ColdStart` metric, and CloudWatch alarms on API 5xx, Lambda throttles and p95 latency that notify an SNS topic. No API change.
 
 ### Changed
 
 - `GET /tasks` is now strongly consistent: a task created or updated is listed immediately. Before, the listing read a secondary index and could miss a task created a moment earlier.
 - New task ids are time-sortable UUIDs (version 7) instead of random version 4 UUIDs. Ids stay UUIDs, as `docs/openapi.yaml` declares (`format: uuid`); clients must treat them as opaque.
 - The table is keyed by `ownerId` (partition) and `id` (sort) and has no secondary index. It is named `Tasks-<stage>`, and the IAM policy no longer grants access to index resources.
+- Log groups now keep logs for 7 days in `dev` and 90 days in other stages (they never expired before), and unknown errors are logged as JSON through the Powertools logger instead of plain text.
 - `docs/openapi.yaml` `info.version` is `1.2.0`, and its description links the stability policy and states that pagination tokens are opaque and not valid across deployments (this was `1.0.0` at the releases `1.0.0` and `1.1.0`).
 
 ### Removed
@@ -31,6 +33,7 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - **A `nextToken` issued before the deploy is rejected with `400`.** Clients restart the listing from the first page when a stored token is rejected. Tokens are opaque and were never promised to survive a deployment.
 - **New ids are version 7 UUIDs.** Existing clients that treat ids as opaque UUIDs need no change.
 - Deploy the API stack and its table replacement together; there is no separate deployment of either.
+- The deploy creates an SNS topic and three alarms. To receive alarm emails, deploy with `--param="alarmEmail=<address>"` and confirm the subscription email; without the parameter no email subscription is created.
 
 ## [1.1.0] - 2026-10-03
 
