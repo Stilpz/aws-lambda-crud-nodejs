@@ -8,7 +8,7 @@ An agent may also keep a local, git-ignored `CLAUDE.md` with the project definit
 
 Serverless Tasks API: AWS Lambda (Node.js 24, ES modules, `arm64`) behind an API Gateway HTTP API with a Cognito JWT authorizer, DynamoDB storage, deployed with Serverless Framework v4. Each user sees only their own tasks. A React frontend will consume it later. Release baseline: tag `v1.0.0`.
 
-Where things are: `src/` code, `tests/` Vitest tests, `serverless.yml` infrastructure, `docs/openapi.yaml` API contract, `docs/ARCHITECTURE.md` design and findings, `specs/` change contracts, `scripts/smoke.sh` post-deploy check.
+Where things are: `src/` code, `tests/` Vitest tests, `serverless.yml` infrastructure (service and provider) with `functions/` and `resources/` included from it, `docs/openapi.yaml` API contract, `docs/ARCHITECTURE.md` design and findings, `specs/` change contracts, `scripts/smoke.sh` post-deploy check.
 
 Commands:
 

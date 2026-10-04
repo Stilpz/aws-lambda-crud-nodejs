@@ -62,13 +62,15 @@ Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda functio
 | Request handling | [middy](https://middy.js.org/): JSON body parsing, JSON Schema validation (Ajv) and error handling |
 | SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
 
-The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table and its indexes.
+The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table and its indexes.
 
 ## Project Structure
 
 ```
 .
-├── serverless.yml      # Functions, HTTP routes, authorizer, IAM role, DynamoDB table and Cognito resources
+├── serverless.yml      # Service, provider (authorizer, IAM role, environment) and the includes below
+├── functions/          # One file per Lambda function: handler and HTTP route
+├── resources/          # table.yml (DynamoDB) and auth.yml (Cognito user pool, app client, stack outputs)
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
 ├── CONTRIBUTING.md     # Contribution guide for forks
@@ -483,7 +485,7 @@ To add an endpoint:
 
 1. Add a use case in `src/application/`: a factory `makeXxx({ taskRepository, ... })` that returns an async function taking the caller as `ownerId`. Wire it in `src/container.js`. If it needs new persistence, extend the `TaskRepository` port and `DynamoTaskRepository` first.
 2. Add a handler in `src/handlers/`, exporting an async function that returns `{ statusCode, body }`. For a handler that reads a JSON body, wrap it with `withJsonBody` from `src/handlers/middleware.js` and a schema from `src/handlers/schemas.js`. Read the caller with `getOwnerId` from `src/handlers/auth.js`.
-3. Register it under `functions` in `serverless.yml` (handler `src/handlers/<file>.<export>`) with its `httpApi` path and method, and the `cognitoAuthorizer` authorizer unless the route is meant to be public.
+3. Register it in a new file `functions/<name>.yml` (handler `src/handlers/<file>.<export>`) with its `httpApi` path and method, and the `cognitoAuthorizer` authorizer unless the route is meant to be public, then add one `${file(./functions/<name>.yml)}` line under `functions` in `serverless.yml`.
 4. Add tests, then deploy and try it.
 
 ## Testing and Linting

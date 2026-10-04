@@ -1,6 +1,6 @@
 # 0011: Split serverless.yml into resources and functions files
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `split-serverless-config-files` (started from `development`)
 - **Roadmap step:** 10 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -85,14 +85,14 @@ Alternatives rejected: a single file with comment banners (does not remove the m
 
 ## Acceptance criteria
 
-- [ ] For `--stage dev`, `--stage staging`, `--stage prod` and an unlisted stage such as `feature-x`, the output of `serverless print` on the branch is byte-identical to the output on the base commit (the `development` commit the branch started from, or the latest merged spec 0009 or 0010 if it landed first). The `diff` of each pair prints nothing.
-- [ ] The packaged CloudFormation templates for `dev` and `prod` are equal after normalization: Lambda version resources, function `Code`, and the deployment bucket outputs are ignored (they change on every build). The comparison script reports `templates equal`.
-- [ ] The root `serverless.yml` contains no function definition and no resource definition, only `org`, `service`, `frameworkVersion`, `provider` (and, if present by then, `stages` and `custom`) and the two include lists.
-- [ ] The six function files each define exactly one function; `functions/*.yml` together contain exactly the six function names that `serverless print` lists.
-- [ ] `git diff` of every moved block shows only a move (no property change): `git diff --stat -M` after the move shows the files as renames or pure additions equal in content to the removed lines, checked by the print comparison above.
-- [ ] No file under `src/`, `tests/`, `scripts/` or `docs/openapi.yaml` changes.
-- [ ] README, CONTRIBUTING, AGENTS and ARCHITECTURE describe the new layout and the "add a function or a resource" steps, with matching structure in the Spanish files.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] For `--stage dev`, `--stage staging`, `--stage prod` and an unlisted stage such as `feature-x`, the output of `serverless print` on the branch is byte-identical to the output on the base commit (the `development` commit the branch started from, or the latest merged spec 0009 or 0010 if it landed first). The `diff` of each pair prints nothing.
+- [x] The packaged CloudFormation templates for `dev` and `prod` are equal after normalization: Lambda version resources, function `Code`, and the deployment bucket outputs are ignored (they change on every build). The comparison script reports `templates equal`.
+- [x] The root `serverless.yml` contains no function definition and no resource definition, only `org`, `service`, `frameworkVersion`, `provider` (and, if present by then, `stages` and `custom`) and the two include lists.
+- [x] The six function files each define exactly one function; `functions/*.yml` together contain exactly the six function names that `serverless print` lists.
+- [x] `git diff` of every moved block shows only a move (no property change): `git diff --stat -M` after the move shows the files as renames or pure additions equal in content to the removed lines, checked by the print comparison above.
+- [x] No file under `src/`, `tests/`, `scripts/` or `docs/openapi.yaml` changes.
+- [x] README, CONTRIBUTING, AGENTS and ARCHITECTURE describe the new layout and the "add a function or a resource" steps, with matching structure in the Spanish files.
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 
@@ -148,6 +148,12 @@ Each commit leaves `serverless print` identical to the base for the four stages 
 3. Move `TaskTable` to `resources/table.yml`.
 4. Move the user pool, the app client and the outputs to `resources/auth.yml`.
 5. Update the documentation and Spanish references, close this spec.
+
+## Implementation notes
+
+- Verified on the implementation branch with the commands above: `serverless print` was identical (`fc` reported no differences) for dev, staging, prod and `feature-x` after each of the three move commits, and the normalized packaged templates for dev and prod were equal. Lint and the 113 tests passed after every commit.
+- The roadmap order change that puts this step first was recorded as an amendment in spec 0000, in its own commit.
+- Nothing required a deploy; a deploy of this change should be a CloudFormation no-op, to be confirmed by the maintainer's first deploy (the change set shows no resource changes).
 
 ## Risks and rollback
 
