@@ -1,5 +1,13 @@
 deleteTask:
   handler: src/handlers/deleteTask.deleteTask
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DeleteItem
+          Resource:
+            - !GetAtt TaskTable.Arn
   events:
     - httpApi:
         path: /tasks/{id}

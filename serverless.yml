@@ -7,16 +7,47 @@ frameworkVersion: "4"
 # Values that differ by stage. "default" applies to every stage that is not listed, so staging, prod
 # and any other name get the stricter values; dev opts out. alarmEmail is never committed: pass it
 # at deploy time with --param="alarmEmail=<address>" (empty means no email subscription).
+#
+# Hardening (spec 0010): the default is strict, so a typo in a stage name is protected, and dev is
+# the only stage that opts out. Protected stages keep their data when the stack is removed and refuse
+# deletion; "serverless remove" fails there until protection is turned off in a reviewed change.
+#   deletionPolicy      what CloudFormation does with the table and user pool when they leave the stack
+#   tableProtection     deletion protection and point-in-time recovery on the table
+#   userPoolProtection  ACTIVE blocks deleting the user pool
+#   mfa                 OFF, or OPTIONAL (users may enrol an authenticator app)
+#   authFlows           sign-in flows the app client allows; the admin flow is only for scripts/smoke.sh
+#   throttleRate/Burst  requests per second and burst allowed on every route
 stages:
   default:
     params:
       logRetentionInDays: 90
       logLevel: INFO
       alarmEmail: ""
+      deletionPolicy: Retain
+      tableProtection: true
+      userPoolProtection: ACTIVE
+      mfa: OPTIONAL
+      authFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      throttleRate: 50
+      throttleBurst: 100
   dev:
     params:
       logRetentionInDays: 7
       logLevel: DEBUG
+      deletionPolicy: Delete
+      tableProtection: false
+      userPoolProtection: INACTIVE
+      mfa: "OFF"
+      authFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      throttleRate: 20
+      throttleBurst: 40
 
 provider:
   name: aws
@@ -45,18 +76,8 @@ provider:
     POWERTOOLS_SERVICE_NAME: ${self:service}
     POWERTOOLS_METRICS_NAMESPACE: TasksApi
     POWERTOOLS_LOG_LEVEL: ${param:logLevel}
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - dynamodb:PutItem
-            - dynamodb:GetItem
-            - dynamodb:Query
-            - dynamodb:UpdateItem
-            - dynamodb:DeleteItem
-          Resource:
-            - !GetAtt TaskTable.Arn
+  # No provider-level IAM statements: each function declares the one DynamoDB action it needs in its
+  # own file, and a function without statements (hello) gets a role with logging permission only.
 
 functions:
   - ${file(./functions/hello.yml)}
@@ -68,5 +89,6 @@ functions:
 
 resources:
   - ${file(./resources/table.yml)}
+  - ${file(./resources/api.yml)}
   - ${file(./resources/auth.yml)}
   - ${file(./resources/observability.yml)}
