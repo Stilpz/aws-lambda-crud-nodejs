@@ -1,7 +1,7 @@
 # 0008: Add a deploy pipeline with AWS OIDC
 
 - **Status:** Implemented
-- **Amendments:** 1 (see below)
+- **Amendments:** 2 (see below)
 - **Branch:** `add-deploy-pipeline-oidc` (started from `development`)
 - **Roadmap step:** 8 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -201,6 +201,7 @@ Each commit leaves `npm run lint` and `npm test` green.
 ## Amendments
 
 1. **The bootstrap template is applied once per stage, not once for all stages.** Scope item 7 and the bootstrap section describe one template that creates the provider and the three roles in a single application. The implemented `infra/github-oidc.yml` takes a `Stage` parameter and creates that stage's role, plus a `CreateOidcProvider` parameter that is `true` in exactly one of the three stacks. Reasons: three roles in one stack would put the `prod` role in the same change set as `dev` and delete all three together, and a stack per stage lets the administrator create `dev` first and `prod` last, as the rollout order asks, without a template macro. The trust, the permissions and the rollout order are unchanged; the administrator runs the same template three times. Found while writing the template. The maintainer approved this amendment.
+2. **The smoke test receives an allowed CORS origin for the stage.** Spec 0013 (CORS) was merged after this spec was written. `scripts/smoke.sh` now checks a preflight against `CORS_ORIGIN`, which defaults to `http://localhost:5173`. That origin is allowed in `dev` but not in `staging` or `prod`, so the smoke step of the deploy workflow would fail there. The workflow now reads the first entry of `provider.httpApi.cors.allowedOrigins` for the stage with `serverless print --format json` and exports it as `CORS_ORIGIN`, so the list stays defined once, in `serverless.yml`. Found while merging both branches. The maintainer approved this amendment.
 
 ## Decisions to confirm
 
