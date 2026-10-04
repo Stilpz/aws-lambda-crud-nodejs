@@ -200,16 +200,19 @@ Resources:
                   - cognito-idp:DeleteUserPoolClient
                   - cognito-idp:DescribeUserPoolClient
                   - cognito-idp:GetUserPoolMfaConfig
+                  - cognito-idp:SetUserPoolMfaConfig
                   - cognito-idp:TagResource
                   - cognito-idp:UntagResource
                   - cognito-idp:ListTagsForResource
                 Resource: !Sub arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
-              # Only scripts/smoke.sh needs these: it makes two throwaway users and deletes them.
+              # Only scripts/smoke.sh needs these: it makes two throwaway users, signs them in through the
+              # admin flow (the only flow allowed outside dev) and deletes them.
               - Sid: SmokeTestUsers
                 Effect: Allow
                 Action:
                   - cognito-idp:AdminCreateUser
                   - cognito-idp:AdminSetUserPassword
+                  - cognito-idp:AdminInitiateAuth
                   - cognito-idp:AdminDeleteUser
                 Resource: !Sub arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
               - Sid: FunctionLogGroups
@@ -226,6 +229,38 @@ Resources:
               - Sid: LogGroupListing
                 Effect: Allow
                 Action: logs:DescribeLogGroups
+                Resource: "*"
+              # The SNS topic that the alarms notify, and its email subscription when alarmEmail is set.
+              # Subscription ARNs extend the topic ARN, hence the second resource.
+              - Sid: AlarmTopic
+                Effect: Allow
+                Action:
+                  - sns:CreateTopic
+                  - sns:DeleteTopic
+                  - sns:GetTopicAttributes
+                  - sns:SetTopicAttributes
+                  - sns:Subscribe
+                  - sns:Unsubscribe
+                  - sns:GetSubscriptionAttributes
+                  - sns:ListSubscriptionsByTopic
+                  - sns:TagResource
+                  - sns:UntagResource
+                  - sns:ListTagsForResource
+                Resource:
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${ServiceName}-${Stage}-alarms
+                  - !Sub arn:${AWS::Partition}:sns:${AWS::Region}:${AWS::AccountId}:${ServiceName}-${Stage}-alarms:*
+              - Sid: Alarms
+                Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:TagResource
+                  - cloudwatch:UntagResource
+                  - cloudwatch:ListTagsForResource
+                Resource: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${ServiceName}-${Stage}-*
+              - Sid: AlarmListing
+                Effect: Allow
+                Action: cloudwatch:DescribeAlarms
                 Resource: "*"
 
 Outputs:
