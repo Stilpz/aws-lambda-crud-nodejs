@@ -48,5 +48,6 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0001](0001-extract-task-repository-port.md) | Extract the task repository port | Implemented |
 | [0002](0002-keep-claude-md-local.md) | Keep CLAUDE.md local and move the shared agent rules to AGENTS.md | Implemented |
 | [0003](0003-add-task-use-cases.md) | Add task use cases and thin handlers | Implemented |
+| [0004](0004-standardize-error-responses.md) | Standardize error responses behind one boundary | Implemented |
 
 Specs are written in English and are not translated: they are contracts, and one authoritative text avoids divergence.
