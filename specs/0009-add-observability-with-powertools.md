@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `add-observability-with-powertools` (started from `development`)
 - **Roadmap step:** 6 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#31](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/31), merged into `development`
 - **Amendments:** 1 (see below)
 - **Supersedes / depends on:** builds on [0004](0004-standardize-error-responses.md) (the error boundary is the one place that logs unknown errors; that spec left structured logging to this step). Independent of 0010 and 0011, but see "Order and file layout" in Design
 
