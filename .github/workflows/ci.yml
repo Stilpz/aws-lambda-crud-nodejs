@@ -9,6 +9,9 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     if: github.event_name != 'schedule'
@@ -45,3 +48,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run audit:prod
+
+  integration-test:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:3.3.1
+        ports:
+          - 8000:8000
+    env:
+      DYNAMODB_ENDPOINT: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # The image has no health check we can rely on, so wait until the port answers.
+      - run: curl --silent --output /dev/null --retry 30 --retry-delay 1 --retry-connrefused http://localhost:8000
+      - run: npm run test:integration
