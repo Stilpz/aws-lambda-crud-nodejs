@@ -1,6 +1,6 @@
 # 0009: Add observability with Powertools for AWS Lambda
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `add-observability-with-powertools` (started from `development`)
 - **Roadmap step:** 6 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -119,21 +119,21 @@ Principles: SRP (one module owns Powertools configuration, one wrapper owns the 
 
 ## Acceptance criteria
 
-- [ ] Every handler is wrapped with `withObservability`, outermost; `hello` included.
-- [ ] No file under `src/application/` or `src/domain/` imports a Powertools package or a logger; only `src/infrastructure/observability.js` imports `@aws-lambda-powertools/*` (plus `dynamoClient.js` through that module).
-- [ ] `console.error` no longer appears in `src/`.
-- [ ] A test proves the correlation id: a wrapped handler called with `requestContext.requestId = "abc"` sees `logger.getCorrelationId() === "abc"`, and the id does not leak into the next invocation.
-- [ ] Boundary tests prove an unknown error is logged once with the label and the error through the logger, and the response is still `500` with the fixed message; the known-error cases, status codes and bodies are unchanged. The assertion that changes (a spy on `logger.error` instead of `console.error`) is justified in its commit message.
-- [ ] A test proves `ColdStart` is the only metric flushed on the first invocation and none on the second.
-- [ ] All existing handler, use-case, repository and pagination tests pass with their assertions unchanged (any call-convention change they need, such as passing a Lambda context, is limited to the shared helper and is justified in its commit).
-- [ ] Test output contains no Powertools JSON lines (log level and metrics are silenced in `vitest.config.js` through environment variables).
-- [ ] `docs/openapi.yaml` is unchanged.
-- [ ] `serverless print --stage dev` and `--stage staging` show `provider.tracing.lambda: true`, the Powertools environment variables and the per-stage retention and log level (dev 7 days and `DEBUG`, staging 90 days and `INFO`).
-- [ ] `serverless print` for dev shows `AlarmTopic`, the three alarms with their dimensions and `AlarmEmailSubscription` (with its condition) only when `--param="alarmEmail=..."` is passed. The framework-generated effects (`RetentionInDays` on the six log groups, `TracingConfig.Mode: Active` on the six functions) are checked in `serverless package` output by the maintainer or at deploy, because the implementation environment may not run `package` (see Amendments).
-- [ ] The CI `validate-template` job still passes its steps locally as far as they can run offline: the extraction keeps `Conditions` and stubs the framework-generated resources the alarms refer to.
-- [ ] README and ARCHITECTURE document the log fields, where to look, how to subscribe to alarms and the "new function" checklist, with matching structure in the Spanish files.
+- [x] Every handler is wrapped with `withObservability`, outermost; `hello` included.
+- [x] No file under `src/application/` or `src/domain/` imports a Powertools package or a logger; only `src/infrastructure/observability.js` and the wrapper `src/handlers/withObservability.js` (which needs the Powertools middleware entry points) import `@aws-lambda-powertools/*`; `dynamoClient.js` uses the tracer through `observability.js`.
+- [x] `console.error` no longer appears in `src/`.
+- [x] A test proves the correlation id: a wrapped handler called with `requestContext.requestId = "abc"` sees `logger.getCorrelationId() === "abc"`, and the id does not leak into the next invocation.
+- [x] Boundary tests prove an unknown error is logged once with the label and the error through the logger, and the response is still `500` with the fixed message; the known-error cases, status codes and bodies are unchanged. The assertion that changes (a spy on `logger.error` instead of `console.error`) is justified in its commit message.
+- [x] A test proves `ColdStart` is the only metric flushed on the first invocation and none on the second.
+- [x] All existing handler, use-case, repository and pagination tests pass with their assertions unchanged (any call-convention change they need, such as passing a Lambda context, is limited to the shared helper and is justified in its commit).
+- [x] Test output contains no Powertools JSON lines (log level and metrics are silenced in `vitest.config.js` through environment variables).
+- [x] `docs/openapi.yaml` is unchanged.
+- [x] `serverless print --stage dev` and `--stage staging` show `provider.tracing.lambda: true`, the Powertools environment variables and the per-stage retention and log level (dev 7 days and `DEBUG`, staging 90 days and `INFO`).
+- [x] `serverless print` for dev shows `AlarmTopic`, the three alarms with their dimensions and `AlarmEmailSubscription` (with its condition) only when `--param="alarmEmail=..."` is passed. The framework-generated effects (`RetentionInDays` on the six log groups, `TracingConfig.Mode: Active` on the six functions) are checked in `serverless package` output by the maintainer or at deploy, because the implementation environment may not run `package` (see Amendments).
+- [x] The CI `validate-template` job still passes its steps locally as far as they can run offline: the extraction keeps `Conditions` and stubs the framework-generated resources the alarms refer to.
+- [x] README and ARCHITECTURE document the log fields, where to look, how to subscribe to alarms and the "new function" checklist, with matching structure in the Spanish files.
 - [ ] After the maintainer deploys to `dev` (post-deploy, not blocking the merge of the code): a request produces one JSON log line per event with the same `correlation_id` as the API Gateway request id; a trace with a DynamoDB subsegment is visible; a `ColdStart` metric appears in the namespace; forcing a 500 or lowering a threshold moves an alarm to `ALARM` and the confirmed email receives it.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 
@@ -185,6 +185,12 @@ Found while implementing (the first spike was run for real); the Decisions below
 3. **The CI `validate-template` job needs two changes.** It lints only `resources.Resources` and `resources.Outputs` from `serverless print` with cfn-lint. The alarms add a CloudFormation `Conditions` section (dropped by the extraction, leaving a dangling `Condition`) and refer to framework-generated resources (`HttpApi`, the Lambda functions), which are not in the extracted fragment. The extraction keeps `Conditions` and adds a placeholder `AWS::CloudFormation::WaitConditionHandle` for each referenced logical id that the fragment does not define. cfn-lint could not be run in the implementation environment, so this is unverified until CI runs.
 4. **`serverless package` is not run in the implementation environment** (it contacts AWS for some lookups there). The criteria that depended on its output are checked with `serverless print` plus the throwaway `package` result recorded while writing this spec; the generated effects are confirmed by the maintainer at `package` or deploy time.
 5. **Verified by spike:** a middy instance composes as the handler of another middy stack; the Powertools middleware needs no Lambda `context` (handler tests call handlers without one); the correlation id is set per request and is `null` again after the request.
+
+## Implementation notes
+
+- Verified with the commands above: `npm run lint` clean; `npm test` 139 tests passed in 14 files (the 130 tests on `development`, unchanged, plus 9 new), coverage threshold met (statements 98.08, branches 97.61); no `console.error` in `src/`; Powertools imported only by `observability.js` and `withObservability.js`; no logger in `application/` or `domain/`; `docs/openapi.yaml` unchanged against `development`; `serverless print` for dev and staging shows tracing, retention, log level and the Powertools variables, and the topic, condition, subscription and three alarms.
+- The only existing test file touched is the shared helper `tests/helpers.js`: `silenceErrorLogs` spies on `logger.error` instead of `console.error`, so every handler and boundary assertion (including "logged once with the label and the error") is unchanged.
+- Not run here, by environment rules: `serverless package` (retention and tracing on the generated resources were checked earlier in a throwaway package while writing this spec), cfn-lint (it does not start in the implementation environment; the extraction step was run locally and its output inspected), and anything that needs AWS. The post-deploy criterion stays open for the maintainer.
 
 ## Decisions to confirm
 

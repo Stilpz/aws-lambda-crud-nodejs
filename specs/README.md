@@ -52,7 +52,7 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0005](0005-migrate-orphan-task-owners.md) | Migrate tasks that have no owner | Superseded by 0006 |
 | [0006](0006-redesign-task-table-keys.md) | Redesign the task table keys | Implemented |
 | [0007](0007-add-ci-quality-gates.md) | Add CI quality gates | Implemented |
-| [0009](0009-add-observability-with-powertools.md) | Add observability with Powertools for AWS Lambda | Approved |
+| [0009](0009-add-observability-with-powertools.md) | Add observability with Powertools for AWS Lambda | Implemented |
 | [0011](0011-split-serverless-config-files.md) | Split serverless.yml into resources and functions files | Implemented |
 | [0016](0016-evaluate-typescript-migration.md) | Evaluate a TypeScript migration and the deployment framework | Implemented |
 | [0017](0017-define-api-versioning-policy.md) | Define the API versioning and deprecation policy | Implemented |
