@@ -78,7 +78,7 @@ Target layers (spec 0000): `handlers → application (use cases) → domain`, wi
 
 - **No AI attribution** in commit messages: no `Co-Authored-By` line, no "Generated with" line, no mention of AI assistance.
 - Never amend or rewrite commits from earlier turns, never force-push, never skip hooks.
-- **Do not push, tag, open pull requests, deploy or delete remote resources unless the maintainer asked for that action.** Ask first; approval for one action does not extend to the next.
+- **Do not push, tag, open pull requests, deploy or delete remote resources unless the maintainer asked for that action.** Ask first; approval for one action does not extend to the next. Merging into `development`, `staging` or `production` deploys through `.github/workflows/deploy.yml`, so those merges are deploys. The OIDC roles in `infra/github-oidc.yml` are applied by the maintainer by hand, never by an agent or by the pipeline.
 
 ## Documentation
 

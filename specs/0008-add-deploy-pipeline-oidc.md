@@ -1,6 +1,7 @@
 # 0008: Add a deploy pipeline with AWS OIDC
 
-- **Status:** Approved
+- **Status:** Implemented
+- **Amendments:** 1 (see below)
 - **Branch:** `add-deploy-pipeline-oidc` (started from `development`)
 - **Roadmap step:** 8 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -147,19 +148,19 @@ Spec 0006 already replaced the table and deletes the old `TaskTable-<stage>` on 
 
 ## Acceptance criteria
 
-- [ ] `.github/workflows/deploy.yml` triggers on `push` to `development`, `staging`, `production` and `workflow_dispatch`, never on pull requests or on `main`, and fails for any other ref.
-- [ ] The deploy job `needs` the CI workflow, and a failing CI run (lint, tests, coverage, audit, template, integration) prevents the deploy job from starting.
-- [ ] The stage is derived from the branch in exactly one place: `development` to `dev`, `staging` to `staging`, `production` to `prod`; the job's `environment` and `--stage` use that value.
-- [ ] The deploy job declares `permissions: id-token: write, contents: read`; no workflow job has `id-token: write` unless it assumes a role; no AWS access key or secret key appears anywhere in the repository or the workflow.
-- [ ] Credentials come from `aws-actions/configure-aws-credentials` with `role-to-assume` read from the `AWS_ROLE_ARN` environment variable.
-- [ ] `infra/github-oidc.yml` passes `cfn-lint` and creates, per stage, a role whose trust policy requires `aud = sts.amazonaws.com` and `sub = repo:Stilpz/aws-lambda-crud-nodejs:environment:<stage>`, and whose permission policy contains no `Action: "*"`, no `iam:CreateUser` or access key actions, and name-scoped resources for every write action where the service allows it.
-- [ ] The `prod` environment requires a reviewer and is restricted to the `production` branch (confirmed in the repository settings by the maintainer; the setting is recorded in the pull request).
-- [ ] The Serverless Framework version is pinned in one workflow value and authenticated with `SERVERLESS_ACCESS_KEY` from the environment secrets.
-- [ ] `STAGE=<stage> REGION=us-west-2 ./scripts/smoke.sh` runs after `serverless deploy` in the same job, a smoke failure fails the run, and `bash -n scripts/smoke.sh` still passes.
-- [ ] Deploys of one stage never run concurrently and are not cancelled mid-run.
-- [ ] After the maintainer completes the rollout: a merge to `development` deploys `dev` and the smoke test passes; a merge to `production` waits for approval, then deploys `prod` and the smoke test passes; the workflow logs show an assumed-role session and no stored keys.
-- [ ] The README no longer says deployments are manual and documents the bootstrap, the Environments, the secrets and the rollback path, with matching structure in both languages.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `.github/workflows/deploy.yml` triggers on `push` to `development`, `staging`, `production` and `workflow_dispatch`, never on pull requests or on `main`, and fails for any other ref. (checked by reading and by parsing the workflow files; a real run confirms it)
+- [x] The deploy job `needs` the CI workflow, and a failing CI run (lint, tests, coverage, audit, template, integration) prevents the deploy job from starting. (checked by reading and by parsing the workflow files; a real run confirms it)
+- [x] The stage is derived from the branch in exactly one place: `development` to `dev`, `staging` to `staging`, `production` to `prod`; the job's `environment` and `--stage` use that value. (checked by reading and by parsing the workflow files; a real run confirms it)
+- [x] The deploy job declares `permissions: id-token: write, contents: read`; no workflow job has `id-token: write` unless it assumes a role; no AWS access key or secret key appears anywhere in the repository or the workflow. (checked by reading and by parsing the workflow files; a real run confirms it)
+- [x] Credentials come from `aws-actions/configure-aws-credentials` with `role-to-assume` read from the `AWS_ROLE_ARN` environment variable. (checked by reading and by parsing the workflow files; a real run confirms it)
+- [ ] `infra/github-oidc.yml` passes `cfn-lint` and creates, per stage, a role whose trust policy requires `aud = sts.amazonaws.com` and `sub = repo:Stilpz/aws-lambda-crud-nodejs:environment:<stage>`, and whose permission policy contains no `Action: "*"`, no `iam:CreateUser` or access key actions, and name-scoped resources for every write action where the service allows it. (trust conditions, absence of wildcard actions, forbidden IAM actions and the only wildcard-resource statements were checked by parsing the template; cfn-lint has not run, there is no Python here, so it stays open until CI or the maintainer runs it)
+- [ ] The `prod` environment requires a reviewer and is restricted to the `production` branch (confirmed in the repository settings by the maintainer; the setting is recorded in the pull request). (the maintainer sets this in the repository settings)
+- [x] The Serverless Framework version is pinned in one workflow value and authenticated with `SERVERLESS_ACCESS_KEY` from the environment secrets. (checked by reading; a real run confirms it)
+- [x] `STAGE=<stage> REGION=us-west-2 ./scripts/smoke.sh` runs after `serverless deploy` in the same job, a smoke failure fails the run, and `bash -n scripts/smoke.sh` still passes. (checked by reading; a real run confirms it)
+- [x] Deploys of one stage never run concurrently and are not cancelled mid-run. (checked by reading; a real run confirms it)
+- [ ] After the maintainer completes the rollout: a merge to `development` deploys `dev` and the smoke test passes; a merge to `production` waits for approval, then deploys `prod` and the smoke test passes; the workflow logs show an assumed-role session and no stored keys. (needs the rollout by the maintainer)
+- [ ] The README no longer says deployments are manual and documents the bootstrap, the Environments, the secrets and the rollback path, with matching structure in both languages. (English files done; the maintainer mirrors the Spanish references)
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 

@@ -19,6 +19,7 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 - [Local Development](#local-development)
 - [Testing and Linting](#testing-and-linting)
 - [Deployment and Cleanup](#deployment-and-cleanup)
+- [Deploying from GitHub Actions](#deploying-from-github-actions)
 - [Known Limitations](#known-limitations)
 - [Security Notes](#security-notes)
 - [Troubleshooting](#troubleshooting)
@@ -84,7 +85,8 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   └── ARCHITECTURE.md # Design, findings and roadmap
 ├── scripts/
 │   └── smoke.sh        # Post-deploy authentication and isolation check
-├── .github/            # CI workflow and pull request template
+├── infra/              # github-oidc.yml: OIDC provider and deploy roles, applied by hand
+├── .github/            # CI and deploy workflows and pull request template
 ├── src/
 │   ├── handlers/       # HTTP adapter: one Lambda handler per route, plus its helpers
 │   │   ├── hello.js        # GET    /             health-check style greeting (public)
@@ -536,6 +538,26 @@ Each stage has its own table, named `Tasks-<stage>`, and its own user pool, name
 
 Upgrading from a version that used the table `TaskTable-<stage>` replaces it: the deploy creates `Tasks-<stage>` with the new key and deletes the old table, **and the tasks in it are lost**. Copy them first if they matter; the project does not provide a migration for this. Pagination tokens issued before the change are rejected with `400`, and new tasks get version 7 UUIDs.
 
+## Deploying from GitHub Actions
+
+A push to `development`, `staging` or `production` runs CI and, if it passes, deploys that branch to its stage with [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), then runs `scripts/smoke.sh` against the stage. `main` is never deployed. The workflow gets short-lived AWS credentials by assuming a role through OpenID Connect, so no AWS access key is stored in GitHub.
+
+| Branch | Stage | GitHub Environment | Gate |
+| --- | --- | --- | --- |
+| `development` | `dev` | `dev` | none |
+| `staging` | `staging` | `staging` | none |
+| `production` | `prod` | `prod` | required reviewer, branch restricted to `production` |
+
+Running the workflow by hand (`workflow_dispatch`) from one of these branches redeploys that stage, which is how to retry a failed deploy or roll back after reverting a merge. Deploys of one stage never overlap and are never cancelled midway. If the smoke test fails the run is red but the new version is already live: revert the merge and let the pipeline redeploy.
+
+**One-time setup, done by hand by an administrator** (the pipeline cannot create the role it runs with, and nothing here is applied by a change to this repository):
+
+1. For each stage, create the role with [`infra/github-oidc.yml`](infra/github-oidc.yml), passing `Stage` as `dev`, `staging` or `prod` and `CreateOidcProvider=true` in exactly one of them (an account holds one provider for GitHub). The role trusts only this repository and the GitHub Environment named after the stage, and may manage only resources starting with `aws-lambda-crud-nodejs-<stage>`.
+2. In the repository settings, create the Environments `dev`, `staging` and `prod`. Restrict each to its own branch, and give `prod` a required reviewer. Required reviewers need a public repository or a paid plan, and "prevent self-review" must stay off for a single maintainer.
+3. In each Environment, set the variable `AWS_ROLE_ARN` to the stack output `DeployRoleArn` of that stage, and the secret `SERVERLESS_ACCESS_KEY` to a key from the Serverless dashboard. A repository-level `SERVERLESS_ACCESS_KEY` secret is also what the CI template check uses.
+
+The deploy role cannot attach managed policies, create users or change the OIDC provider. The first deploy of a stage applies every change merged since the last manual deploy, including the table replacement described above, so confirm no stage holds data that matters before enabling it.
+
 ## Known Limitations
 
 This is a learning-oriented project, so it leaves out several things a production service would need:
@@ -575,17 +597,18 @@ This is a learning-oriented project, so it leaves out several things a productio
 | `404 Task not found` on your own task | You are using another user's token, or the task was already deleted |
 | `500` | Read the logs: `serverless logs -f <function> --tail` (functions: `createTask`, `getTasks`, `getTask`, `updateTask`, `deleteTask`) |
 | `serverless deploy` asks you to log in | Serverless v4 needs `serverless login` or `SERVERLESS_ACCESS_KEY`, and a valid `org` in `serverless.yml` |
+| The deploy workflow fails at "Assume the deploy role" | The Environment lacks `AWS_ROLE_ARN`, the role was not created from `infra/github-oidc.yml` for that stage, or the job did not run in the Environment named after the stage |
 | The deploy fails on the first run in a fork | Review [Configuration for Forks](#configuration-for-forks); the `org` value belongs to the original author |
 
 ## Branching and Release Workflow
 
 Four long-lived branches carry a change from review to release:
 
-| Branch | Purpose | Stage | Deploy command |
+| Branch | Purpose | Stage | Deployed by |
 | --- | --- | --- | --- |
-| `development` | Integration. Every pull request targets this branch. | `dev` | `serverless deploy --stage dev` |
-| `staging` | Pre-release validation. | `staging` | `serverless deploy --stage staging` |
-| `production` | Released code. This is what runs in production. | `prod` | `serverless deploy --stage prod` |
+| `development` | Integration. Every pull request targets this branch. | `dev` | the deploy workflow on every push |
+| `staging` | Pre-release validation. | `staging` | the deploy workflow on every push |
+| `production` | Released code. This is what runs in production. | `prod` | the deploy workflow, after a reviewer approves |
 | `main` | Archive of released code. Never committed to directly. | none | not deployed |
 
 ```
@@ -597,7 +620,7 @@ feature branch ──PR──▶ development ──PR──▶ staging ──PR�
 - Promote a change by opening a pull request from one branch to the next one. Use a merge commit rather than squash, so the branches keep the same history and do not diverge.
 - After a release is live in `production`, open a pull request from `production` to `main`. `main` only receives code that has already been released, so it stays unaltered.
 - For an urgent fix, branch from `production`, open a pull request back to `production`, and then merge the fix into `staging` and `development` so it is not lost in the next promotion.
-- CI (lint, coverage, OpenAPI lint, dependency audit, template validation and integration tests) runs on pushes and pull requests for all four branches. Deployments are manual.
+- CI (lint, coverage, OpenAPI lint, dependency audit, template validation and integration tests) runs on pull requests for all four branches and on pushes to `main`. Pushes to `development`, `staging` and `production` run the same checks through the deploy workflow, which deploys only if they pass (see [Deploying from GitHub Actions](#deploying-from-github-actions)). `serverless deploy` from a laptop still works for a personal stage.
 
 Recommended repository settings: make `development` the default branch so new pull requests target it, and protect all four branches by requiring a pull request, passing CI and disallowing force pushes and deletion.
 
