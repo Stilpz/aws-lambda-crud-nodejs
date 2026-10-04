@@ -38,52 +38,12 @@ provider:
             - !GetAtt TaskTable.Arn
 
 functions:
-  hello:
-    handler: src/handlers/hello.hello
-    events:
-      - httpApi:
-          path: /
-          method: get
-  createTask:
-    handler: src/handlers/addTask.addTask
-    events:
-      - httpApi:
-          path: /tasks
-          method: post
-          authorizer:
-            name: cognitoAuthorizer
-  getTasks:
-    handler: src/handlers/getTasks.getTasks
-    events:
-      - httpApi:
-          path: /tasks
-          method: get
-          authorizer:
-            name: cognitoAuthorizer
-  getTask:
-    handler: src/handlers/getTask.getTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: get
-          authorizer:
-            name: cognitoAuthorizer
-  updateTask:
-    handler: src/handlers/updateTask.updateTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: put
-          authorizer:
-            name: cognitoAuthorizer
-  deleteTask:
-    handler: src/handlers/deleteTask.deleteTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: delete
-          authorizer:
-            name: cognitoAuthorizer
+  - ${file(./functions/hello.yml)}
+  - ${file(./functions/createTask.yml)}
+  - ${file(./functions/getTasks.yml)}
+  - ${file(./functions/getTask.yml)}
+  - ${file(./functions/updateTask.yml)}
+  - ${file(./functions/deleteTask.yml)}
 
 resources:
   Resources:
