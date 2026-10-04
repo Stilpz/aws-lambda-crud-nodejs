@@ -73,7 +73,7 @@ Found while auditing the code against the documentation. Status is as of this do
 | F3 | No machine-readable API contract | Fixed (`openapi.yaml`) |
 | F4 | No contributor guide for forks | Fixed (`CONTRIBUTING.md`) |
 | F5 | README lacked consumer guidance, error model, troubleshooting and security notes | Fixed |
-| F6 | Tasks created before `ownerId` are unreachable | Documented; roadmap step 4 provides a migration |
+| F6 | Tasks created before `ownerId` are unreachable | Fixed: `npm run migrate:owners` deletes them or assigns an owner, dry run by default ([spec 0005](../specs/0005-migrate-orphan-task-owners.md)) |
 | F7 | No end-to-end check of authentication and isolation | Fixed (`scripts/smoke.sh`); to be run in CI by step 8 |
 | F8 | `GET /tasks/{id}` used an eventually consistent read, so a task could be missing right after it was created | Fixed (`ConsistentRead`) |
 | F9 | Handlers combine HTTP, rules and persistence; ownership scoping depends on each handler remembering it | Fixed: persistence and ownership conditions are behind the repository port ([spec 0001](../specs/0001-extract-task-repository-port.md)) and every use case requires `ownerId` ([spec 0003](../specs/0003-add-task-use-cases.md)). Error mapping now sits in one boundary ([spec 0004](../specs/0004-standardize-error-responses.md)) |
@@ -113,7 +113,7 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 1 | `extract-task-repository-port` | `TaskRepository` port and `DynamoTaskRepository`; handlers use it; behavior unchanged. **Done**, [spec 0001](../specs/0001-extract-task-repository-port.md) | Existing tests green; repository tests |
 | 2 | `add-task-use-cases` | `application/` use cases take `ownerId`; handlers become thin and move to `src/handlers/`. **Done**, [spec 0003](../specs/0003-add-task-use-cases.md) | Use-case tests with an in-memory repository |
 | 3 | `standardize-error-responses` | Typed errors and one error mapper; the `{ message }` shape is kept. **Done**, [spec 0004](../specs/0004-standardize-error-responses.md) | OpenAPI examples match responses |
-| 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership; explicit `--owner`, dry run by default | Dry run on the dev table |
+| 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership, or deletes them; explicit `--owner` or `--delete`, dry run by default. **Done**, [spec 0005](../specs/0005-migrate-orphan-task-owners.md) | Dry run on the dev table |
 | 5 | `redesign-task-table-keys` | New table keyed `PK = ownerId`, `SK = id` with a time-sortable id (such as ULID): consistent listing, no GSI, ownership implicit in the key. Side-by-side migration, then drop the old table | Smoke test; migration check. Breaking for cursors |
 | 6 | `add-observability-with-powertools` | Structured logs, correlation id, tracing, metrics, log retention, alarms on 5xx, throttles and latency | Logs and alarms visible in dev |
 | 7 | `add-ci-quality-gates` | OpenAPI lint, coverage threshold, dependency audit, template validation, DynamoDB Local integration job | CI green on a pull request |

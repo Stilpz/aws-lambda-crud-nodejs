@@ -518,7 +518,30 @@ serverless remove                      # delete the whole stack
 
 Each stage has its own table, named `TaskTable-<stage>`, and its own user pool, named `tasks-<stage>`, so stages can share an AWS account and region without touching each other's data or users.
 
-The first deploy that adds `ownerId-createdAt-index` to an existing table builds the index in the background. Tasks created before ownership was introduced have no `ownerId`, so they do not appear in listings and answer `404`. Delete or migrate them.
+The first deploy that adds `ownerId-createdAt-index` to an existing table builds the index in the background. Tasks created before ownership was introduced have no `ownerId`, so they do not appear in listings and answer `404`. The migration script below deletes them or gives them an owner.
+
+### Tasks created before ownership
+
+`npm run migrate:owners` finds the tasks that have no `ownerId` and either deletes them or assigns an owner. It runs from your machine with your own AWS credentials, which need `dynamodb:Scan`, `dynamodb:UpdateItem` and `dynamodb:DeleteItem` on the table. It is a **dry run unless you add `--apply`**.
+
+```bash
+# 1. Dry run: lists what would change and writes nothing
+npm run migrate:owners -- --stage dev --delete
+
+# 2. Perform it
+npm run migrate:owners -- --stage dev --delete --apply
+```
+
+To keep the tasks instead of deleting them, give them an owner: the `sub` of a Cognito user, which is a UUID.
+
+```bash
+SUB=$(aws cognito-idp admin-get-user --region us-west-2 --user-pool-id "$USER_POOL_ID" \
+  --username "ana@example.com" --query "UserAttributes[?Name=='sub'].Value" --output text)
+
+npm run migrate:owners -- --stage dev --owner "$SUB" --apply
+```
+
+`--stage <name>` targets the table `TaskTable-<name>`; use `--table <name>` for another table and `--region` for another region (default `AWS_REGION`, then `us-west-2`). Every write is guarded so a task that already has an owner is never changed, which makes the script safe to run again. It exits with a non-zero code if any write failed.
 
 ## Known Limitations
 
@@ -526,7 +549,7 @@ This is a learning-oriented project, so it leaves out several things a productio
 
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
 - **No CORS configuration.** Browsers on another origin cannot call the API yet. Add `@middy/http-cors` or an `httpApi.cors` setting when a frontend needs it.
-- **Tasks from before ownership have no owner** and are unreachable until deleted or migrated. See [Deployment and Cleanup](#deployment-and-cleanup).
+- **Tasks from before ownership have no owner** and are unreachable until deleted or given an owner with the [migration script](#tasks-created-before-ownership).
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
 - **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility.
 - **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.

@@ -1,6 +1,6 @@
 # 0005: Migrate tasks that have no owner
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `migrate-orphan-task-owners`, stacked on `standardize-error-responses` (PR #21) because both edit the specs index and the architecture roadmap table; merge #21 first
 - **Roadmap step:** 4 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -62,13 +62,13 @@ Alternatives rejected: an AWS Lambda or a Serverless custom resource (a one-time
 
 ## Acceptance criteria
 
-- [ ] Argument parsing tests cover: a stage resolves to `TaskTable-<stage>`, an explicit table, the region precedence, dry run as the default, `--apply`, exactly one of stage or table, exactly one of `--owner` or `--delete`, an owner that is not a UUID, and unknown flags.
-- [ ] Migration tests cover: a dry run performs no write, assign and delete issue the guarded request for every orphan across more than one scan page, a guarded write that finds an owner is counted as skipped, any other failure is counted as failed without stopping the run, and the summary counts.
-- [ ] Every write sent by the migration carries `attribute_not_exists(ownerId)` (asserted).
-- [ ] The scan filters on `attribute_not_exists(ownerId)` and projects only `id` (asserted).
-- [ ] `src/`, `serverless.yml` and `docs/openapi.yaml` are unchanged.
-- [ ] `node scripts/migrate-orphan-task-owners.js --help` prints the usage and exits 0; running it with no arguments prints the usage and exits non-zero without contacting AWS.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] Argument parsing tests cover: a stage resolves to `TaskTable-<stage>`, an explicit table, the region precedence, dry run as the default, `--apply`, exactly one of stage or table, exactly one of `--owner` or `--delete`, an owner that is not a UUID, and unknown flags.
+- [x] Migration tests cover: a dry run performs no write, assign and delete issue the guarded request for every orphan across more than one scan page, a guarded write that finds an owner is counted as skipped, any other failure is counted as failed without stopping the run, and the summary counts.
+- [x] Every write sent by the migration carries `attribute_not_exists(ownerId)` (asserted).
+- [x] The scan filters on `attribute_not_exists(ownerId)` and projects only `id` (asserted).
+- [x] `src/`, `serverless.yml` and `docs/openapi.yaml` are unchanged.
+- [x] `node scripts/migrate-orphan-task-owners.js --help` prints the usage and exits 0; running it with no arguments prints the usage and exits non-zero without contacting AWS.
+- [x] `npm run lint` and `npm test` pass.
 - [ ] The pull request links this spec and states it matches it.
 
 ## Verification
