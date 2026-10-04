@@ -1,0 +1,80 @@
+name: Deploy
+
+# development deploys dev, staging deploys staging, production deploys prod after an approval.
+# workflow_dispatch redeploys the stage of the branch it is run from, for a retry or a rollback
+# after a revert; any other branch is refused by the stage job.
+on:
+  push:
+    branches: [development, staging, production]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  stage:
+    # Forks have no AWS roles and must never try to deploy.
+    if: github.repository == 'Stilpz/aws-lambda-crud-nodejs'
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.map.outputs.stage }}
+    steps:
+      - id: map
+        name: Map the branch to a stage
+        run: |
+          case "$GITHUB_REF_NAME" in
+            development) stage=dev ;;
+            staging) stage=staging ;;
+            production) stage=prod ;;
+            *) echo "::error::Branch $GITHUB_REF_NAME does not deploy to any stage"; exit 1 ;;
+          esac
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: [ci, stage]
+    runs-on: ubuntu-latest
+    # The environment holds AWS_ROLE_ARN and SERVERLESS_ACCESS_KEY and, for prod, the approval.
+    environment: ${{ needs.stage.outputs.stage }}
+    # One deploy per stage at a time, and never cancelled halfway: cancelling a stack update can
+    # leave it in a rollback state.
+    concurrency:
+      group: deploy-${{ needs.stage.outputs.stage }}
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      STAGE: ${{ needs.stage.outputs.stage }}
+      REGION: us-west-2
+      # Keep in step with SERVERLESS_VERSION in ci.yml.
+      SERVERLESS_VERSION: 4.43.0
+      SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.REGION }}
+      - name: Deploy
+        run: npx --yes serverless@${SERVERLESS_VERSION} deploy --stage "$STAGE"
+      # The smoke test checks CORS with an origin the stage allows. The list is defined once, in
+      # serverless.yml, so read the first allowed origin from there instead of repeating it here.
+      - name: Pick an allowed CORS origin for the smoke test
+        run: |
+          origin=$(npx --yes serverless@${SERVERLESS_VERSION} print --stage "$STAGE" --format json | node -e '
+            const config = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            process.stdout.write(config.provider.httpApi.cors.allowedOrigins[0]);
+          ')
+          echo "CORS_ORIGIN=$origin" >> "$GITHUB_ENV"
+      - name: Smoke test
+        run: bash scripts/smoke.sh

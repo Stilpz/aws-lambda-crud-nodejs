@@ -65,6 +65,8 @@ serverless remove --stage dev  # clean up when you are done
 
 `serverless remove` deletes the stage's table and user pool with everything in them. Only `dev` is a throwaway stage: any other stage name (a personal name included) is protected, so its table and user pool are retained, cannot be deleted and `serverless remove` fails. If you did deploy another name and want to remove it, see "Protected stages" in the README.
 
+Your fork does not deploy by itself: the deploy workflow runs only in the original repository, where merges to `development`, `staging` and `production` deploy `dev`, `staging` and `prod` (see [Deploying from GitHub Actions](README.md#deploying-from-github-actions)).
+
 ## 5. Commit
 
 Small, focused commits in English. Each message has a descriptive title, a `What:` paragraph and a `Why:` paragraph:

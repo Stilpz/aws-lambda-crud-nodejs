@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # development, staging and production run CI through deploy.yml, which deploys only if it passes.
   push:
-    branches: [development, staging, production, main]
+    branches: [main]
+  workflow_call:
   pull_request:
     branches: [development, staging, production, main]
   # New advisories appear without any change in the repository, so the audit also runs weekly.
