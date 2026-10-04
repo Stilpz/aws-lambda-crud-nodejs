@@ -104,7 +104,7 @@ Scope boundary: this stays a single service. Splitting into services, a message 
 
 ## 6. Roadmap
 
-Each step is its own branch, started from `development`, with its own pull request to `development` and small atomic commits.
+The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architecture.md); this table is a summary. Every step is delivered under its own approved spec in [`specs/`](../specs/README.md), which fixes its scope, acceptance criteria and commit plan, and a change that is not in its spec is drift. Each step is its own branch, started from `development`, with its own pull request to `development` and small atomic commits.
 
 | Step | Branch | Outcome | How it is verified |
 | --- | --- | --- | --- |

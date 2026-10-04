@@ -40,6 +40,8 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable API contract (OpenAPI 3.0.3). Import it into Postman, Insomnia or a client generator |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
+| [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
+| [`CLAUDE.md`](CLAUDE.md) and [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |
 | [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication and per-user isolation |
 
 ## Architecture
@@ -70,6 +72,9 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
 ├── CONTRIBUTING.md     # Contribution guide for forks
+├── CLAUDE.md           # Working rules for agents and contributors
+├── AGENTS.md           # Pointer to CLAUDE.md for other agents
+├── specs/              # Change contracts: process, template, roadmap and one spec per change
 ├── docs/
 │   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)
 │   └── ARCHITECTURE.md # Design, findings and roadmap
@@ -583,7 +588,7 @@ Recommended repository settings: make `development` the default branch so new pu
 Contributions are welcome. The full, step-by-step guide for working from a fork is in [`CONTRIBUTING.md`](CONTRIBUTING.md). In short:
 
 1. Fork the repository, add the original as `upstream`, and create a branch from an up-to-date `development`, following the naming rules above: `git checkout -b add-my-change`.
-2. Make your change, keeping the style of the surrounding code, and update `docs/openapi.yaml` and this README if the API changes.
+2. Get an approved spec in `specs/` for the change (see [`specs/README.md`](specs/README.md)), make your change inside its scope, keeping the style of the surrounding code, and update `docs/openapi.yaml` and this README if the API changes.
 3. Run `npm run lint` and `npm test`, and add tests for new behavior.
 4. Deploy to your own AWS account on a personal stage and run `scripts/smoke.sh`.
 5. Keep commits small and focused, with a descriptive title and a message explaining what changed and why.
