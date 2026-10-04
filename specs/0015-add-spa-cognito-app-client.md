@@ -3,12 +3,13 @@
 - **Status:** Approved
 - **Branch:** `add-spa-cognito-app-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Browser-safe sign-in" of [0000](0000-roadmap-to-layered-architecture.md)
+- **Amendments:** 1 (see the end of this spec)
 - **Pull request:** to be filled when opened
-- **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md), merged). Reuses the per-stage web origin list introduced by 0013. Related to 0010 (hardening: the roadmap also lists "SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev"; see Out of scope) and to 0011 (config split: the new resources go to the Cognito resources file if that lands first).
+- **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md)), the CORS configuration of [0013](0013-add-explicit-cors-origins.md), the hardening of [0010](0010-harden-production-resources.md) and the configuration split of [0011](0011-split-serverless-config-files.md), all merged. It does not depend on the typed client of [0014](0014-generate-typed-api-client.md), so its branch is cut from `development` and the two pull requests merge independently. Opened for review against the deploy role template of the deploy pipeline spec (0008), which needs the new resource types (see Contract impact).
 
 ## Context
 
-The only app client, `UserPoolClient` in `serverless.yml`, allows `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_USER_SRP_AUTH` and `ALLOW_REFRESH_TOKEN_AUTH`, has no secret and no OAuth settings, and no user pool domain exists. That is right for `scripts/smoke.sh` (it creates users with the AWS CLI and calls `initiate-auth` with `USER_PASSWORD_AUTH`, then sends the **ID token**), and wrong for a browser: a SPA would have to collect passwords itself and send them to the Cognito API, and a public client cannot keep a secret.
+The only app client, `UserPoolClient` in `resources/auth.yml`, has no secret and no OAuth settings, takes its sign-in flows from the stage parameter `authFlows` (since spec 0010: `dev` allows `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH` and `ALLOW_ADMIN_USER_PASSWORD_AUTH`; every other stage allows SRP, refresh and the admin flow only), and no user pool domain exists. The admin flow is what `scripts/smoke.sh` uses (it creates users with the AWS CLI, signs them in with `admin-initiate-auth`, then sends the **ID token**). That is right for scripts and wrong for a browser: a SPA would have to collect passwords itself and send them to the Cognito API, and a public client cannot keep a secret.
 
 The browser-safe pattern is the OAuth 2.0 authorization code flow with PKCE against Cognito's hosted sign-in pages: the SPA redirects to Cognito, the user types the password on a Cognito page, Cognito redirects back with a one-time code, and the SPA exchanges the code (plus the PKCE verifier) for tokens at the token endpoint.
 
@@ -31,7 +32,7 @@ Add a separate public app client for the SPA, with a user pool domain and the ho
    - Token lifetimes, explicit units, revocation and rotation (Design).
    - `PreventUserExistenceErrors: ENABLED`.
 3. **Authorizer audience:** add `!Ref SpaUserPoolClient` next to `!Ref UserPoolClient`. Nothing else about the authorizer changes (issuer, identity source, routes).
-4. **Per-stage configuration:** callback and logout URL lists as stage parameters, safe defaults for local development.
+4. **Per-stage configuration:** `spaCallbackUrls` and `spaLogoutUrls` lists in the one existing `stages:` block of `serverless.yml` (the profile that already holds `webOrigins` and the hardening parameters), with the local development URLs in `default` and `https` placeholders in `staging` and `prod`. No second `stages:` key.
 5. **Stack outputs:** `SpaClientId`, `HostedUiBaseUrl` (the domain URL). Existing outputs `UserPoolId` and `UserPoolClientId` are unchanged.
 6. **Tests and checks:** a configuration test over `serverless.yml`, additions to `scripts/smoke.sh`, and an optional dependency-free script `scripts/pkce-login.mjs` for an end-to-end check with a real browser sign-in (Design, "How it is tested").
 7. **Documentation:** README (Authentication section: the two clients, which is for what, how to get a token through the hosted UI, token lifetimes), `docs/openapi.yaml` description and security scheme text, `docs/ARCHITECTURE.md` (decision and F10), Spanish references.
@@ -39,7 +40,7 @@ Add a separate public app client for the SPA, with a user pool domain and the ho
 ## Out of scope
 
 - The React sign-in code, token storage and refresh logic in the browser: the frontend. This spec states the server-side facts it relies on (lifetimes, rotation, the token endpoint).
-- **Removing or restricting the existing client.** `scripts/smoke.sh` and the future deploy pipeline (roadmap step 8) need `USER_PASSWORD_AUTH`. Disabling it outside `dev` is a hardening decision for 0010 or a follow-up spec, and must keep the smoke test working (for example with a dedicated test-only client).
+- **Changing the existing client.** Spec 0010 already limits `USER_PASSWORD_AUTH` to `dev` through the `authFlows` parameter; this spec leaves `UserPoolClient` and that parameter untouched, and the SPA client allows no password flow in any stage.
 - Scopes on API routes, a Cognito resource server or custom scopes, and requiring access tokens only (Decision 3): a later hardening spec.
 - Social or SAML identity providers, MFA, a custom domain, managed-login branding (`ManagedLoginVersion: 2`), a pre-token Lambda trigger.
 - Sign-up, password reset UX beyond what the hosted UI provides, and email settings (the pool's own attributes are unchanged).
@@ -87,11 +88,15 @@ Classic hosted UI (`ManagedLoginVersion: 1`) is chosen explicitly because it nee
 Exact URLs, registered per stage, from stage parameters (same mechanism as 0013's origin list; the verification of list parameters in `serverless print` is recorded there and applies here):
 
 ```yaml
-stages:
+stages:        # the existing block: these keys are added next to webOrigins in each profile
   default:
     params:
       spaCallbackUrls: [http://localhost:5173/auth/callback]
       spaLogoutUrls:   [http://localhost:5173/]
+  staging:
+    params:
+      spaCallbackUrls: [https://staging.app.example.com/auth/callback]   # placeholder
+      spaLogoutUrls:   [https://staging.app.example.com/]
   prod:
     params:
       spaCallbackUrls: [https://app.example.com/auth/callback]   # placeholder
@@ -150,7 +155,8 @@ Verification is layered because a hosted-UI login needs a browser:
 | --- | --- |
 | Public API (`docs/openapi.yaml`) | No path, schema or status change; **not breaking**. The `bearerAuth` description and the `info.description` now say that tokens from either app client are accepted and that the SPA uses the access token. `info.version` follows the maintainer's release practice. |
 | Client-visible behavior | New sign-in route for browsers. Tokens from the existing client are accepted exactly as before. |
-| Infrastructure (`serverless.yml`) | New `UserPoolDomain`, new `SpaUserPoolClient`, authorizer audience gains the new client, new stage parameters, two new outputs. Additive: the existing client, pool, table and functions are not replaced. The authorizer is updated in place. |
+| Infrastructure (`resources/auth.yml`, `serverless.yml`) | New `UserPoolDomain` and `SpaUserPoolClient` in `resources/auth.yml` with two outputs, two parameters per profile in the `stages:` block and a second entry in the authorizer `audience` of `serverless.yml`. Additive: the existing client, pool, table and functions are not replaced. The authorizer is updated in place. New CloudFormation resource type for the deploy role: `AWS::Cognito::UserPoolDomain` (`AWS::Cognito::UserPoolClient` is already used). No function is added, so the observability, per-function role and throttle alarm rules are not touched. |
+| Compatibility (policy 0017) | **Non-breaking, minor:** the authorizer accepts tokens it rejected before (a new client), which is the policy's "loosening" and nothing a client written to the previous contract can trip on. Recorded under `Added` in the changelog. |
 | Data model | none |
 | Dependencies | `yaml` as a dev dependency (shared with 0013), if not already added |
 | Cost | none expected beyond the user pool's existing pricing (a prefix domain has no extra charge; not verified for every pricing plan) |
@@ -189,8 +195,8 @@ node scripts/pkce-login.mjs                       # manual: sign in once in the 
 
 ## Commit plan
 
-1. Add this spec (Draft, then Approved by the maintainer).
-2. Add the per-stage callback and logout URL parameters, the user pool domain and the SPA app client to `serverless.yml`, with the two outputs.
+1. Add this spec (Draft, then Approved by the maintainer), and amend it to the merged state of `development` (this amendment).
+2. Add the per-stage callback and logout URL parameters to the existing `stages:` block, and the user pool domain, the SPA app client and the two outputs to `resources/auth.yml`.
 3. Add the SPA client to the authorizer audience (its own commit, so it can be reverted independently).
 4. Add the `yaml` dev dependency (if not already present) and `tests/cognitoClients.test.js`.
 5. Add the read-only client and hosted-UI checks to `scripts/smoke.sh`.
@@ -215,3 +221,15 @@ node scripts/pkce-login.mjs                       # manual: sign in once in the 
 3. **Token the SPA sends to the API (recommended: the access token)**, with the authorizer still accepting both for now. Enforcing access tokens through a resource server and route scopes is a separate hardening spec.
 4. **Refresh policy (recommended: access and ID tokens 60 minutes, refresh token 7 days, rotation enabled with a 10 second grace period)**; drop rotation if the pool's plan does not support it.
 5. **`scripts/pkce-login.mjs` (recommended: include it)** as a dependency-free manual check. Alternative: verify by hand in the browser once the frontend exists (less code, but nothing proves PKCE and refresh before then).
+
+## Amendment 1
+
+Written when implementation started, after the merge of development (CORS, PATCH, observability, hardening, the quality gates and the decision records). Reality differed from the draft in these points:
+
+- **One `stages:` block, resources in `resources/auth.yml`.** Spec 0010 made `serverless.yml` a single profile block (`default`, `dev`, `staging`, `prod`) and spec 0011 moved the Cognito resources to `resources/auth.yml`. The new URL parameters go into that block, and the domain, the client and the outputs into that file. The draft's snippet with only `default` and `prod` gains a `staging` entry.
+- **The existing client's flows come from `authFlows`** (spec 0010), so "the existing client" is no longer one fixed set of flows; the spec leaves it and the parameter untouched. The draft's out-of-scope paragraph about restricting `USER_PASSWORD_AUTH` is replaced: hardening did it for non-dev stages, and `scripts/smoke.sh` now signs in with the admin flow.
+- **Token facts verified** (Cognito documentation, "Understanding the identity (ID) token" and "Understanding the access token"): the ID token `aud` is the app client id; the access token carries the same value in `client_id` and has an `aud` only when a resource binding was requested, which this design never does. The authorizer therefore accepts both tokens of the SPA client once its id is in the audience. Decision record 0002 (`docs/decisions/0002-frontend-repository-layout.md`) says the frontend sends the ID token, "to be verified in 0015": it is verified that both work, and the recommendation of Decision 3 stays the access token. The record's sentence is a statement to revisit, and is reported to the maintainer, not edited here.
+- **Cognito documentation notes** that access and ID token lifetimes can be 5 minutes to 1 day and that managed login sets browser cookies valid for one hour regardless of shorter token lifetimes; the chosen 60 minutes matches that cookie.
+- **No function is added**, so the three rules of spec 0009 and 0010 (observability wrapper, own IAM role, throttle alarm entry) do not apply.
+- **The smoke test needs one more permission in the account that runs it:** the new read-only checks call `describe-user-pool-client` (`cognito-idp:DescribeUserPoolClient`). The deploy pipeline role (spec 0008, not merged) and its template are out of scope here; the permissions are listed in the pull request description for the maintainer.
+- **`CHANGELOG.md`** gets an `Added` entry with its class, as spec 0017 asks.
