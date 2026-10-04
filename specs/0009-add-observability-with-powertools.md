@@ -4,6 +4,7 @@
 - **Branch:** `add-observability-with-powertools` (started from `development`)
 - **Roadmap step:** 6 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
+- **Amendments:** 1 (see below)
 - **Supersedes / depends on:** builds on [0004](0004-standardize-error-responses.md) (the error boundary is the one place that logs unknown errors; that spec left structured logging to this step). Independent of 0010 and 0011, but see "Order and file layout" in Design
 
 ## Context
@@ -30,12 +31,12 @@ Make every request traceable and every failure visible: structured JSON logs car
 
 ## Scope
 
-1. **Dependencies** (justified here, as AGENTS.md requires): `@aws-lambda-powertools/logger`, `@aws-lambda-powertools/metrics`, `@aws-lambda-powertools/tracer`, each `^2.35.0`, as production dependencies.
+1. **Dependencies** (justified here, as AGENTS.md requires): `@aws-lambda-powertools/logger`, `@aws-lambda-powertools/metrics`, `@aws-lambda-powertools/tracer` and `@aws-lambda-powertools/jmespath` (needed by the logger's correlation id lookup, see Amendments), each `^2.35.0`, as production dependencies.
 2. **Observability module** `src/infrastructure/observability.js`: creates and exports one `logger`, one `metrics` and one `tracer`, configured from environment variables (`POWERTOOLS_SERVICE_NAME`, `POWERTOOLS_METRICS_NAMESPACE`, `POWERTOOLS_LOG_LEVEL`). The logger is created with the correlation id search function. No other module imports a Powertools package.
 3. **HTTP wrapper** `src/handlers/withObservability.js` exporting `withObservability(handler)`: a middy stack, outermost around every handler, that
    - injects Lambda context into the logger and sets `correlation_id` from `requestContext.requestId`, clearing per-invocation keys between invocations;
    - captures the handler in an X-Ray subsegment;
-   - flushes metrics and records a `ColdStart` metric.
+   - records a `ColdStart` metric on the first invocation of a container, through `metrics.captureColdStartMetric()` in a one-line middleware (not `logMetrics`, see Amendments).
 4. **Error boundary** (`src/handlers/errorBoundary.js`): the unknown-error branch calls `logger.error(logLabel, error)` instead of `console.error(logLabel, error)`. The mapping table, the labels and the responses do not change.
 5. **Handlers**: `hello`, `addTask`, `getTasks`, `getTask`, `updateTask` and `deleteTask` are wrapped with `withObservability`, outermost. Their bodies, use cases and domain are untouched.
 6. **DynamoDB tracing**: `src/infrastructure/dynamoClient.js` wraps the low-level client with `tracer.captureAWSv3Client` before building the document client, so each DynamoDB call is a subsegment.
@@ -62,14 +63,14 @@ Make every request traceable and every failure visible: structured JSON logs car
 ## Design
 
 ```
-event --> withObservability (logger context + correlation id, tracer segment, metrics flush)
+event --> withObservability (logger context + correlation id, tracer segment, cold start metric)
             --> withJsonBody (body handlers only, spec 0004)
                   --> withErrorMapping --> handler --> use case --> repository --> DynamoDB (traced)
 ```
 
 - **Layering.** Powertools lives in `src/infrastructure/observability.js`; the HTTP adapter (`withObservability`, `errorBoundary`) is the only consumer. Use cases and domain log nothing: an error already travels up as a typed error and is logged once, at the boundary. This keeps logging out of the domain and avoids duplicate log lines.
-- **Why a middy wrapper for all handlers.** The Powertools middleware (`injectLambdaContext`, `captureLambdaHandler`, `logMetrics`) are middy middleware. Four handlers already run through middy (`withJsonBody`); the others are plain functions. One wrapper applied to all six gives one behavior and one place to change. A middy instance is itself a callable handler, so `withObservability(withJsonBody(...))` composes; this must be confirmed in the first implementation commit (see Risks).
-- **Order.** Observability is outermost so the correlation id and context are set before `withErrorMapping` logs, and so metrics are flushed after the boundary has turned an error into a 500.
+- **Why a middy wrapper for all handlers.** The Powertools middleware (`injectLambdaContext`, `captureLambdaHandler`) are middy middleware. Four handlers already run through middy (`withJsonBody`); the others are plain functions. One wrapper applied to all six gives one behavior and one place to change. A middy instance is itself a callable handler, so `withObservability(withJsonBody(...))` composes; this must be confirmed in the first implementation commit (see Risks).
+- **Order.** Observability is outermost so the correlation id and context are set before `withErrorMapping` logs,.
 - **Log shape.** Powertools JSON: `level`, `message`, `timestamp`, `service`, `xray_trace_id`, `correlation_id`, plus the Lambda context keys (`cold_start`, `function_name`, `function_memory_size`, `function_arn`, `function_request_id`). Errors are serialized by `logger.error(label, error)` with `name`, `message`, `location` and `stack`. The stack stays in logs and never in a response, as today.
 - **Correlation id** is `requestContext.requestId` (path `API_GATEWAY_HTTP`). It is the API Gateway request id, not the Lambda `awsRequestId`, because it is the id a caller or an API Gateway access log can quote. The Lambda id is still in `function_request_id`.
 - **Stage-aware values** (Serverless v4 `stages:` block, `${param:...}`):
@@ -91,7 +92,7 @@ event --> withObservability (logger context + correlation id, tracer segment, me
 
   HTTP API publishes no throttle metric (throttled calls are 429 inside `4xx`), so "throttles" is the Lambda concurrency throttle. Route throttling is spec 0010. The throttles alarm lists the six functions explicitly (`!Ref <Name>LambdaFunction`); a new function must be added to it, which the checklist in README "Observability" states.
 - **Tracing.** `provider.tracing.lambda: true` makes each function `Active`; the Powertools tracer adds the handler subsegment and, through `captureAWSv3Client`, one per DynamoDB call. API Gateway HTTP API does not take part in X-Ray (to be confirmed, see Risks), so a trace starts at Lambda. The tracer disables itself outside Lambda, so tests are unaffected.
-- **Metrics.** EMF is printed to the log and parsed by CloudWatch: no `PutMetricData` permission and no extra latency. Only `ColdStart` is emitted now.
+- **Metrics.** EMF is printed to the log and parsed by CloudWatch: no `PutMetricData` permission and no extra latency. Only `ColdStart` is emitted now, by `metrics.captureColdStartMetric()`, which publishes its own single-metric blob. The `logMetrics` middleware is not used: with no application metric it logs a `WARN` ("No application metrics to publish") on every warm invocation. It is adopted when the first business metric is added.
 
 Alternatives rejected:
 
@@ -113,7 +114,7 @@ Principles: SRP (one module owns Powertools configuration, one wrapper owns the 
 | Client-visible behavior | none |
 | Infrastructure | Lambda active tracing (adds X-Ray permissions to the role), log retention on all log groups (in place, no replacement), new environment variables, one SNS topic, one conditional subscription, three alarms, a `stages:` block. Log groups already exist: setting retention is an in-place update |
 | Data model | none |
-| Dependencies | three Powertools packages (and their transitive `aws-xray-sdk-core`, `@aws/lambda-invoke-store`); larger zip and a few milliseconds of cold start, to be measured |
+| Dependencies | four Powertools packages (and their transitive `aws-xray-sdk-core`, `@aws/lambda-invoke-store`); larger zip and a few milliseconds of cold start, to be measured |
 | Documentation | README, `docs/ARCHITECTURE.md`, Spanish references, this spec |
 
 ## Acceptance criteria
@@ -128,7 +129,8 @@ Principles: SRP (one module owns Powertools configuration, one wrapper owns the 
 - [ ] Test output contains no Powertools JSON lines (log level and metrics are silenced in `vitest.config.js` through environment variables).
 - [ ] `docs/openapi.yaml` is unchanged.
 - [ ] `serverless print --stage dev` and `--stage staging` show `provider.tracing.lambda: true`, the Powertools environment variables and the per-stage retention and log level (dev 7 days and `DEBUG`, staging 90 days and `INFO`).
-- [ ] `serverless package` for dev shows `RetentionInDays` on all six log groups, `TracingConfig.Mode: Active` on all six functions, `AlarmTopic`, the three alarms with their dimensions, and `AlarmEmailSubscription` only when `--param="alarmEmail=..."` is passed.
+- [ ] `serverless print` for dev shows `AlarmTopic`, the three alarms with their dimensions and `AlarmEmailSubscription` (with its condition) only when `--param="alarmEmail=..."` is passed. The framework-generated effects (`RetentionInDays` on the six log groups, `TracingConfig.Mode: Active` on the six functions) are checked in `serverless package` output by the maintainer or at deploy, because the implementation environment may not run `package` (see Amendments).
+- [ ] The CI `validate-template` job still passes its steps locally as far as they can run offline: the extraction keeps `Conditions` and stubs the framework-generated resources the alarms refer to.
 - [ ] README and ARCHITECTURE document the log fields, where to look, how to subscribe to alarms and the "new function" checklist, with matching structure in the Spanish files.
 - [ ] After the maintainer deploys to `dev` (post-deploy, not blocking the merge of the code): a request produces one JSON log line per event with the same `correlation_id` as the API Gateway request id; a trace with a DynamoDB subsegment is visible; a `ColdStart` metric appears in the namespace; forcing a 500 or lowering a threshold moves an alarm to `ALARM` and the confirmed email receives it.
 - [ ] `npm run lint` and `npm test` pass.
@@ -144,8 +146,9 @@ git diff <base> --stat -- docs/openapi.yaml                      # prints nothin
 npm view @aws-lambda-powertools/logger version                   # still within ^2.35.0 at implementation time
 npx serverless print --stage dev
 npx serverless print --stage staging
-npx serverless package --stage dev --package /tmp/pkg-dev --param="alarmEmail=ops@example.com"
-# then inspect /tmp/pkg-dev/cloudformation-template-update-stack.json for the resources listed above
+npx serverless print --stage dev --param="alarmEmail=ops@example.com" --format json   # alarms, topic and subscription
+# maintainer, when able: npx serverless package --stage dev --package /tmp/pkg-dev and inspect
+# /tmp/pkg-dev/cloudformation-template-update-stack.json for RetentionInDays and TracingConfig
 ```
 
 Post-deploy checks (maintainer): `aws logs tail /aws/lambda/aws-lambda-crud-nodejs-dev-getTasks --since 5m`, X-Ray console for the trace, `aws cloudwatch describe-alarms --alarm-name-prefix aws-lambda-crud-nodejs-dev`, `aws cloudwatch list-metrics --namespace <namespace>`.
@@ -160,7 +163,8 @@ Post-deploy checks (maintainer): `aws logs tail /aws/lambda/aws-lambda-crud-node
 6. Trace DynamoDB calls in `dynamoClient.js`.
 7. Infrastructure: `stages:` params, active tracing, log retention, Powertools environment variables.
 8. Infrastructure: alarm topic, conditional subscription and the three alarms.
-9. Documentation and Spanish references, close this spec.
+9. Make the CI template validation understand the alarms (amendment 3).
+10. Documentation and Spanish references, close this spec.
 
 ## Risks and rollback
 
@@ -171,6 +175,16 @@ Post-deploy checks (maintainer): `aws logs tail /aws/lambda/aws-lambda-crud-node
 - **Risk:** alarm noise. `notBreaching` for missing data and the conservative thresholds keep an idle stage quiet; thresholds are tuned in a later change.
 - **Unverified at spec time:** that API Gateway HTTP API cannot emit X-Ray segments; that it returns an `apigw-requestid` response header equal to `requestContext.requestId` (useful for support); the `Stage` dimension value `$default` on the `AWS/ApiGateway` metrics. Each is checked on the deployed dev stage; none changes the code.
 - **Rollback:** revert the merge and redeploy. Retention and tracing revert in place; the topic, subscription and alarms are deleted by the stack update. Logs already written stay in CloudWatch.
+
+## Amendments
+
+Found while implementing (the first spike was run for real); the Decisions below are unchanged.
+
+1. **A fourth package, `@aws-lambda-powertools/jmespath`.** The logger's `correlationId` entry point imports it, and although the logger declares it only as an optional peer, importing without it fails (`Cannot find package '@aws-lambda-powertools/jmespath'`). It is `2.35.0`, depends only on `commons`, and is added as a production dependency.
+2. **`captureColdStartMetric()` instead of `logMetrics`.** With no application metric, `logMetrics` calls `publishStoredMetrics`, which logs a `WARN` on every invocation. That is one noise line per warm request. A small middleware that calls `metrics.captureColdStartMetric()` before the handler emits the cold start metric and nothing else. The behavior asked for (a `ColdStart` metric, none on warm invocations) is unchanged.
+3. **The CI `validate-template` job needs two changes.** It lints only `resources.Resources` and `resources.Outputs` from `serverless print` with cfn-lint. The alarms add a CloudFormation `Conditions` section (dropped by the extraction, leaving a dangling `Condition`) and refer to framework-generated resources (`HttpApi`, the Lambda functions), which are not in the extracted fragment. The extraction keeps `Conditions` and adds a placeholder `AWS::CloudFormation::WaitConditionHandle` for each referenced logical id that the fragment does not define. cfn-lint could not be run in the implementation environment, so this is unverified until CI runs.
+4. **`serverless package` is not run in the implementation environment** (it contacts AWS for some lookups there). The criteria that depended on its output are checked with `serverless print` plus the throwaway `package` result recorded while writing this spec; the generated effects are confirmed by the maintainer at `package` or deploy time.
+5. **Verified by spike:** a middy instance composes as the handler of another middy stack; the Powertools middleware needs no Lambda `context` (handler tests call handlers without one); the correlation id is set per request and is `null` again after the request.
 
 ## Decisions to confirm
 
