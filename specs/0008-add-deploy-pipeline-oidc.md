@@ -200,7 +200,7 @@ Each commit leaves `npm run lint` and `npm test` green.
 
 ## Amendments
 
-1. **The bootstrap template is applied once per stage, not once for all stages.** Scope item 7 and the bootstrap section describe one template that creates the provider and the three roles in a single application. The implemented `infra/github-oidc.yml` takes a `Stage` parameter and creates that stage's role, plus a `CreateOidcProvider` parameter that is `true` in exactly one of the three stacks. Reasons: three roles in one stack would put the `prod` role in the same change set as `dev` and delete all three together, and a stack per stage lets the administrator create `dev` first and `prod` last, as the rollout order asks, without a template macro. The trust, the permissions and the rollout order are unchanged; the administrator runs the same template three times. Found while writing the template.
+1. **The bootstrap template is applied once per stage, not once for all stages.** Scope item 7 and the bootstrap section describe one template that creates the provider and the three roles in a single application. The implemented `infra/github-oidc.yml` takes a `Stage` parameter and creates that stage's role, plus a `CreateOidcProvider` parameter that is `true` in exactly one of the three stacks. Reasons: three roles in one stack would put the `prod` role in the same change set as `dev` and delete all three together, and a stack per stage lets the administrator create `dev` first and `prod` last, as the rollout order asks, without a template macro. The trust, the permissions and the rollout order are unchanged; the administrator runs the same template three times. Found while writing the template. The maintainer approved this amendment.
 
 ## Decisions to confirm
 
