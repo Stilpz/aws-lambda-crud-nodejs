@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `standardize-error-responses` (started from `development`)
 - **Roadmap step:** 3 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#21](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/21)
 - **Supersedes / depends on:** builds on [0003](0003-add-task-use-cases.md) (merged)
 
 ## Context
@@ -86,7 +86,7 @@ One edge case changes: in `addTask`, `getOwnerId` is read before the `try`, so a
 - [x] `statusCode: 400`, `404` and `500` appear only in `src/handlers/errorBoundary.js` (success `200` and `201` stay in the handlers).
 - [x] `docs/openapi.yaml` and `serverless.yml` are unchanged.
 - [x] `npm run lint` and `npm test` pass.
-- [ ] The pull request links this spec and states it matches it.
+- [x] The pull request links this spec and states it matches it (#21).
 
 ## Verification
 
