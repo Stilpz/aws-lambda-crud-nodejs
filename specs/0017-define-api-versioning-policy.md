@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `define-api-versioning-policy` (started from `development`)
 - **Roadmap step:** Frontend readiness track of [0000](0000-roadmap-to-layered-architecture.md), item "Contract stability policy"
-- **Pull request:** to be filled when opened
+- **Pull request:** [#26](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/26), merged into `development`
 - **Supersedes / depends on:** builds on [0004](0004-standardize-error-responses.md) (which deferred error-shape changes to this policy) and [0006](0006-redesign-task-table-keys.md) (the change that invalidated cursors). Informs the `add-patch-task-route` step (first deprecation, `PUT`), the `add-explicit-cors-origins` item (headers a browser can read) and the typed client item (spec 0014). None of them blocks this spec.
 
 ## Context
@@ -133,7 +133,7 @@ A spec that touches the contract adds a **Compatibility** row to its Contract im
 - [x] `npx @redocly/cli lint docs/openapi.yaml` passes.
 - [x] `info.version`, the changelog heading and the release checklist agree on the "one number" rule, and the policy states what the maintainer does at release time.
 - [x] `CONTRIBUTING.md`, the pull request template, `AGENTS.md`, `README.md` and `docs/ARCHITECTURE.md` link the policy.
-- [ ] The Spanish references match their English files in headings, table rows and code blocks. (Untracked files, mirrored by the maintainer after this change.)
+- [x] The Spanish references match their English files in headings, table rows and code blocks. (Untracked files, mirrored by the maintainer after the merge.)
 - [x] No file under `src/`, `tests/`, `scripts/`, `.github/workflows/` or `serverless.yml` changed.
 - [x] `npm run lint` and `npm test` pass.
 
