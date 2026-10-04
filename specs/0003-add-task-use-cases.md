@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `add-task-use-cases` (started from `development`)
 - **Roadmap step:** 2 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#20](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/20)
 - **Supersedes / depends on:** builds on [0001](0001-extract-task-repository-port.md) (merged)
 
 ## Context
@@ -99,7 +99,7 @@ src/handlers  ──▶  src/container.js  ──▶  src/application  ──▶
 - [x] Every `handler:` entry in `serverless.yml` resolves to an exported function (checked by the command below).
 - [x] `git diff development -- serverless.yml` shows only the six `handler:` lines; `docs/openapi.yaml` is unchanged.
 - [x] `npm run lint` and `npm test` pass.
-- [ ] The pull request links this spec and states it matches it.
+- [x] The pull request links this spec and states it matches it (#20).
 
 ## Verification
 
