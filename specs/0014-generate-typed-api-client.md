@@ -4,7 +4,7 @@
 - **Branch:** `generate-typed-api-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Typed client from the contract" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Amendments:** 1 (see the end of this spec)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#37](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/37), merged into `development`
 - **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md), merged). Sequenced after 0012 (the contract gains `PATCH`; whichever merges later regenerates the output, and the drift check from this spec enforces it). Must work whichever way 0016 (TypeScript or JSDoc types) decides. Related to roadmap step 7 (CI gates: OpenAPI lint) and to the frontend-home decision record.
 
 ## Context
