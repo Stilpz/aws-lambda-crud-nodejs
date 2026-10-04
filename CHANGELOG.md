@@ -18,6 +18,8 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 
 - `PATCH /tasks/{id}`: the partial update, answering `200` with the updated task. It takes the same body and has the same errors as `PUT` ([spec 0012](specs/0012-add-patch-task-route.md)).
 
+- A typed client generated from the contract: `api-client/schema.d.ts` (TypeScript declarations from `docs/openapi.yaml`, with `openapi-typescript`) and `api-client/client.js` (`createApiClient`, over `openapi-fetch`), with `api:generate`, `api:check` and `api:typecheck` scripts that CI runs so the generated types cannot drift from the contract ([spec 0014](specs/0014-generate-typed-api-client.md)). Tooling only: no API change, and the folder is excluded from the Lambda packages.
+
 ### Changed
 
 - `GET /tasks` is now strongly consistent: a task created or updated is listed immediately. Before, the listing read a secondary index and could miss a task created a moment earlier.
