@@ -1,6 +1,6 @@
 # 0012: Add the PATCH /tasks/{id} route and deprecate PUT
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `add-patch-task-route` (started from `development`)
 - **Roadmap step:** 11 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
