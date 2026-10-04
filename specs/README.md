@@ -46,6 +46,6 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | --- | --- | --- |
 | [0000](0000-roadmap-to-layered-architecture.md) | Roadmap to a layered architecture and a React-ready API | Approved |
 | [0001](0001-extract-task-repository-port.md) | Extract the task repository port | Implemented |
-| [0002](0002-keep-claude-md-local.md) | Keep CLAUDE.md local and move the shared agent rules to AGENTS.md | Approved |
+| [0002](0002-keep-claude-md-local.md) | Keep CLAUDE.md local and move the shared agent rules to AGENTS.md | Implemented |
 
 Specs are written in English and are not translated: they are contracts, and one authoritative text avoids divergence.

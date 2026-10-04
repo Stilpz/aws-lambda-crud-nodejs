@@ -1,6 +1,6 @@
 # 0002: Keep CLAUDE.md local and move the shared agent rules to AGENTS.md
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `keep-claude-md-local` (stacked on `extract-task-repository-port`, which introduces the files it changes)
 - **Roadmap step:** process change, outside the architecture roadmap of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -44,12 +44,12 @@ Make `CLAUDE.md` local and ignored, keep the shared rules versioned in `AGENTS.m
 
 ## Acceptance criteria
 
-- [ ] `git ls-files CLAUDE.md` prints nothing and `git check-ignore CLAUDE.md` reports it ignored.
-- [ ] `CLAUDE.md` exists on disk and defines the project, stack, architecture, commands and instructions.
-- [ ] `AGENTS.md` contains every rule that was in the tracked `CLAUDE.md`, with no rule lost or changed.
-- [ ] `git grep -n "CLAUDE" -- ':!specs'` prints nothing that links to the file (only the ignore entry), and the Spanish references no longer link to it.
-- [ ] `npm run lint` and `npm test` pass and no code file changed.
-- [ ] The pull request links this spec and states it matches it.
+- [x] `git ls-files CLAUDE.md` prints nothing and `git check-ignore CLAUDE.md` reports it ignored.
+- [x] `CLAUDE.md` exists on disk and defines the project, stack, architecture, commands and instructions.
+- [x] `AGENTS.md` contains every rule that was in the tracked `CLAUDE.md`, with no rule lost or changed.
+- [x] `git grep -n "CLAUDE" -- ':!specs'` prints nothing that links to the file (only the ignore entry), and the Spanish references no longer link to it.
+- [x] `npm run lint` and `npm test` pass and no code file changed.
+- [ ] The pull request links this spec and states it matches it (pending: the pull request is not opened yet).
 
 ## Verification
 
