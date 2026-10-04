@@ -3,6 +3,7 @@
 - **Status:** Approved
 - **Branch:** `generate-typed-api-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Typed client from the contract" of [0000](0000-roadmap-to-layered-architecture.md)
+- **Amendments:** 1 (see the end of this spec)
 - **Pull request:** to be filled when opened
 - **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md), merged). Sequenced after 0012 (the contract gains `PATCH`; whichever merges later regenerates the output, and the drift check from this spec enforces it). Must work whichever way 0016 (TypeScript or JSDoc types) decides. Related to roadmap step 7 (CI gates: OpenAPI lint) and to the frontend-home decision record.
 
@@ -26,7 +27,7 @@ Generate API types and a thin typed client from `docs/openapi.yaml`, commit the 
 4. **Scripts** in `package.json`: `api:generate` (regenerate), `api:check` (fail if the committed file differs from a fresh generation), `api:typecheck` (type-check the factory against the generated types).
 5. **CI:** `api:check` and `api:typecheck` added to the existing `lint-and-test` job in `.github/workflows/ci.yml`.
 6. **Tests:** a Vitest test of the factory with an injected `fetch` double: URL and method built from a path, path parameters filled, bearer header set, a `PATCH` or `PUT` body sent as JSON.
-7. **Packaging guard:** `api-client/` is excluded from the Lambda artifact if it would otherwise be packaged.
+7. **Packaging guard:** a `package.patterns` entry `!api-client/**` in `serverless.yml`, pinned by a configuration test (see Amendment 1: the exclusion is added, not conditional).
 8. **Documentation:** README (replace the `openapi-generator-cli` suggestion with the generated client, regeneration command, usage example), `docs/ARCHITECTURE.md`, `CONTRIBUTING.md` (regenerate when you edit the contract), Spanish references, specs index.
 
 ## Out of scope
@@ -86,7 +87,7 @@ In both cases the generation command, the drift check and the generated file are
 
 ### The drift check
 
-`npm run api:check` regenerates from `docs/openapi.yaml` and fails if the result differs from the committed `api-client/schema.d.ts`. Two drifts are caught: the contract changed and nobody regenerated (stale file), or someone edited the generated file by hand. `npm run api:typecheck` catches the third: a contract change that removes or renames a path or method used by the factory or by the usage example in `api-client/client.js`'s JSDoc, because the type no longer exists. Both run in CI on every pull request, so a contract edit that is not accompanied by its generated output cannot merge.
+`npm run api:check` regenerates from `docs/openapi.yaml` and fails if the result differs from the committed `api-client/schema.d.ts`. Two drifts are caught: the contract changed and nobody regenerated (stale file), or someone edited the generated file by hand. `npm run api:typecheck` catches the third: a contract change that removes or renames a path or method used by the factory or by the calls in `api-client/contractUsage.js`, because the type no longer exists. Both run in CI on every pull request, so a contract edit that is not accompanied by its generated output cannot merge.
 
 ### Principles applied
 
@@ -169,3 +170,16 @@ grep -n "nextToken" -A2 api-client/schema.d.ts | grep "string | null"
 3. **Factory in this repository (recommended: yes, fifteen lines).** Alternative: generate types only and let the frontend own the client (fewer files, but the auth middleware is then untested here).
 4. **Root type names (recommended: `--root-types --root-types-no-schema-prefix`)** so JSDoc can write `import("./schema").Task`.
 5. **`typescript` pinned to `^5.9.3` as a dev dependency (recommended)** until `openapi-typescript` supports a newer major; this decision is revisited by 0016.
+
+## Amendment 1
+
+Written during implementation, after the merge of development (CORS, PATCH, observability, hardening, the quality gates and the decision records 0001 and 0002). Reality differed from the draft in these points:
+
+- **`npm run api:check` is verified.** The `--check` flag exits 0 on a clean tree and 1 with "Generated types are not up-to-date!" on a hand-edited file; the generate-and-diff fallback is not needed. Generation is deterministic (two runs give identical bytes).
+- **`.gitattributes` is added** (`api-client/schema.d.ts text eol=lf linguist-generated=true`). The draft only said "marked as generated"; the `eol=lf` part is needed because `--check` compares bytes and a Windows checkout with `core.autocrlf` would otherwise turn the file into CRLF and fail the check.
+- **The usage example is a type-checked file, not a JSDoc comment:** `api-client/contractUsage.js` calls every operation (`GET /`, `POST` and `GET /tasks`, `GET`, `PATCH`, `PUT` and `DELETE /tasks/{id}`) and is only compiled by `api:typecheck`, never run. A comment cannot fail a build. JSDoc `import()` types need the `.js` extension (`./schema.js` resolves to `schema.d.ts`) under `nodenext`.
+- **Packaging is excluded unconditionally.** `serverless.yml` has no `package:` block, and decision record 0002 cites the Serverless packaging documentation: everything in the service directory is included unless a pattern excludes it. `serverless print` shows the effective configuration but not the file list of the artifact, so whether `api-client/` would have been packaged cannot be observed without `serverless package` (AWS credentials). The exclusion `!api-client/**` is therefore added, and the artifact listing is left to the maintainer after the first deploy. `serverless print` resolves the block for dev, staging and prod.
+- **Location is confirmed by the decision record.** Record 0002 (`docs/decisions/0002-frontend-repository-layout.md`) puts the frontend in `web/`, self-contained and not an npm workspace, importing nothing from the backend, and delegates the place of the generated client to this spec. `api-client/` at the root is owned by the contract, is neither backend nor frontend source, and `web/` will import it. The factory is JavaScript with JSDoc while `web/` is TypeScript: `tsc` reads the JSDoc types of a JavaScript module imported with `allowJs`, and the generated declarations are consumed directly.
+- **Overlap with the typing follow-up of record 0001.** The record proposes a spec `add-jsdoc-type-checking` that adds `typescript` and a typecheck script for `src/`. This spec adds `typescript@^5.9.3` for the generator and `api:typecheck` for `api-client/` only; the later spec reuses the dependency and must keep its major within `openapi-typescript`'s peer range.
+- **CI:** the two checks run in the existing `lint-and-test` job, as the spec said; the job now also contains the coverage run added by spec 0007.
+- **`CHANGELOG.md`** gets an entry under `Added` (tooling only, no API change), as spec 0017 asks.
