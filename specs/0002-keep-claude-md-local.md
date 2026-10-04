@@ -3,7 +3,7 @@
 - **Status:** Implemented
 - **Branch:** `keep-claude-md-local` (stacked on `extract-task-repository-port`, which introduces the files it changes)
 - **Roadmap step:** process change, outside the architecture roadmap of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#15](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/15), merged into `development`
 - **Supersedes / depends on:** amends the CLAUDE.md part of the commit "Add CLAUDE.md and AGENTS.md" in spec [0001](0001-extract-task-repository-port.md); must merge after it
 
 ## Context
@@ -49,7 +49,7 @@ Make `CLAUDE.md` local and ignored, keep the shared rules versioned in `AGENTS.m
 - [x] `AGENTS.md` contains every rule that was in the tracked `CLAUDE.md`, with no rule lost or changed.
 - [x] `git grep -n "CLAUDE" -- ':!specs'` prints nothing that links to the file (only the ignore entry), and the Spanish references no longer link to it.
 - [x] `npm run lint` and `npm test` pass and no code file changed.
-- [ ] The pull request links this spec and states it matches it (pending: the pull request is not opened yet).
+- [x] The pull request links this spec and states it matches it (#15).
 
 ## Verification
 

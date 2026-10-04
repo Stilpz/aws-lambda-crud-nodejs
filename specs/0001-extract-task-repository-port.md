@@ -4,7 +4,7 @@
 - **Amendments:** 1 (see below)
 - **Branch:** `extract-task-repository-port` (started from the `v1.0.0` tag, whose commit contains `development`)
 - **Roadmap step:** 1 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened (branch `extract-task-repository-port`)
+- **Pull request:** [#14](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/14), merged into `development`
 - **Supersedes / depends on:** none
 
 ## Context
@@ -95,7 +95,7 @@ Behavior the port promises, which every implementation must honor:
 - [x] The DynamoDB request parameters produced by each operation are identical to the current ones (proved by the unchanged handler tests plus the repository tests).
 - [x] `git diff v1.0.0 -- serverless.yml docs/openapi.yaml` is empty.
 - [x] `npm run lint` and `npm test` pass.
-- [ ] The pull request links this spec and states it matches it (pending: the pull request is not opened yet).
+- [x] The pull request links this spec and states it matches it (#14).
 
 ## Verification
 
