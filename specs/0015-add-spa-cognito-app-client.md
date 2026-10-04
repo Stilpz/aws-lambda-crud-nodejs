@@ -165,7 +165,8 @@ Verification is layered because a hosted-UI login needs a browser:
 ## Acceptance criteria
 
 - [ ] After deploy, `aws cognito-idp describe-user-pool-client` for the SPA client shows no `ClientSecret`, `AllowedOAuthFlows` exactly `["code"]`, `AllowedOAuthScopes` exactly `["openid","email"]`, `SupportedIdentityProviders` `["COGNITO"]`, and no `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH` or `ALLOW_USER_SRP_AUTH` in `ExplicitAuthFlows`.
-- [ ] The existing client is unchanged: same id as before the deploy, still lists `ALLOW_USER_PASSWORD_AUTH`, and the complete existing `scripts/smoke.sh` checks still pass.
+- [ ] The existing client definition is unchanged (`git diff development -- resources/auth.yml` removes no line, and `tests/cognitoClients.test.js` pins its flows to the `authFlows` parameter).
+- [ ] After deploy, the existing client has the same id as before and the complete existing `scripts/smoke.sh` checks still pass.
 - [ ] The authorizer audience contains both client ids (`aws apigatewayv2 get-authorizers` read-only), and an ID token and an access token obtained through the SPA client both get `200` on `GET /tasks`.
 - [ ] A token of user A from the SPA client and one from the existing client list the same tasks.
 - [ ] Callback and logout URLs differ per stage; non-default stages contain no `http://localhost` entry and only `https` URLs (configuration test).
@@ -233,3 +234,4 @@ Written when implementation started, after the merge of development (CORS, PATCH
 - **No function is added**, so the three rules of spec 0009 and 0010 (observability wrapper, own IAM role, throttle alarm entry) do not apply.
 - **The smoke test needs one more permission in the account that runs it:** the new read-only checks call `describe-user-pool-client` (`cognito-idp:DescribeUserPoolClient`). The deploy pipeline role (spec 0008, not merged) and its template are out of scope here; the permissions are listed in the pull request description for the maintainer.
 - **`CHANGELOG.md`** gets an `Added` entry with its class, as spec 0017 asks.
+- **Acceptance criterion about the existing client reworded.** The draft said it "still lists `ALLOW_USER_PASSWORD_AUTH`"; since spec 0010 only `dev` does, and the other stages offer SRP, refresh and the admin flow. The criterion is split into what a diff and the configuration test prove and what the deployed smoke test proves.
