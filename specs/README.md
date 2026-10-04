@@ -57,7 +57,7 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0011](0011-split-serverless-config-files.md) | Split serverless.yml into resources and functions files | Implemented |
 | [0012](0012-add-patch-task-route.md) | Add the PATCH /tasks/{id} route and deprecate PUT | Implemented |
 | [0013](0013-add-explicit-cors-origins.md) | Add explicit CORS origins | Implemented |
-| [0015](0015-add-spa-cognito-app-client.md) | Add a Cognito app client for the SPA | Approved |
+| [0015](0015-add-spa-cognito-app-client.md) | Add a Cognito app client for the SPA | Implemented |
 | [0016](0016-evaluate-typescript-migration.md) | Evaluate a TypeScript migration and the deployment framework | Implemented |
 | [0017](0017-define-api-versioning-policy.md) | Define the API versioning and deprecation policy | Implemented |
 | [0018](0018-decide-frontend-repository-layout.md) | Decide where the frontend lives and how it ships | Implemented |

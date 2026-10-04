@@ -1,6 +1,6 @@
 # 0015: Add a Cognito app client for the SPA
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `add-spa-cognito-app-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Browser-safe sign-in" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Amendments:** 1 (see the end of this spec)
@@ -165,17 +165,19 @@ Verification is layered because a hosted-UI login needs a browser:
 ## Acceptance criteria
 
 - [ ] After deploy, `aws cognito-idp describe-user-pool-client` for the SPA client shows no `ClientSecret`, `AllowedOAuthFlows` exactly `["code"]`, `AllowedOAuthScopes` exactly `["openid","email"]`, `SupportedIdentityProviders` `["COGNITO"]`, and no `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH` or `ALLOW_USER_SRP_AUTH` in `ExplicitAuthFlows`.
-- [ ] The existing client definition is unchanged (`git diff development -- resources/auth.yml` removes no line, and `tests/cognitoClients.test.js` pins its flows to the `authFlows` parameter).
+- [x] The existing client definition is unchanged (`git diff development -- resources/auth.yml` removes no line, and `tests/cognitoClients.test.js` pins its flows to the `authFlows` parameter).
 - [ ] After deploy, the existing client has the same id as before and the complete existing `scripts/smoke.sh` checks still pass.
 - [ ] The authorizer audience contains both client ids (`aws apigatewayv2 get-authorizers` read-only), and an ID token and an access token obtained through the SPA client both get `200` on `GET /tasks`.
 - [ ] A token of user A from the SPA client and one from the existing client list the same tasks.
-- [ ] Callback and logout URLs differ per stage; non-default stages contain no `http://localhost` entry and only `https` URLs (configuration test).
+- [x] Callback and logout URLs differ per stage; non-default stages contain no `http://localhost` entry and only `https` URLs (configuration test).
 - [ ] The authorize request with an unregistered `redirect_uri` does not redirect to the sign-in page.
 - [ ] Token lifetimes: access and ID tokens 60 minutes, refresh 7 days, units explicit; `exp - iat` of a real access token is 3600 seconds.
 - [ ] A refresh through `grant_type=refresh_token` returns new ID and access tokens (and a new refresh token if rotation is on), shown with `scripts/pkce-login.mjs` or recorded in the pull request.
-- [ ] The two outputs `SpaClientId` and `HostedUiBaseUrl` exist, and the existing outputs are unchanged.
-- [ ] The README documents both clients and the hosted UI token flow without printing a real token or id.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] The two outputs `SpaClientId` and `HostedUiBaseUrl` exist, and the existing outputs are unchanged.
+- [x] The README documents both clients and the hosted UI token flow without printing a real token or id.
+- [x] `npm run lint` and `npm test` pass.
+
+The unticked criteria need a deployed stage and a real sign-in. The maintainer verifies them after the first deploy with `STAGE=dev ./scripts/smoke.sh` (the read-only client and hosted-UI checks) and `node scripts/pkce-login.mjs` (tokens, audience, lifetimes and refresh). Verified without a deploy: `serverless print` resolves the client, the domain, the outputs and the two-entry audience for dev, staging and prod; `tests/cognitoClients.test.js` (23 tests) fails when the audience entry, a password flow or a localhost callback in prod is introduced; `tests/pkceLogin.test.js` checks the PKCE challenge against RFC 7636.
 
 ## Verification
 
