@@ -46,49 +46,35 @@ functions:
   - ${file(./functions/deleteTask.yml)}
 
 resources:
-  Resources:
-    TaskTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Tasks-${sls:stage}
-        BillingMode: PAY_PER_REQUEST
-        AttributeDefinitions:
-          - AttributeName: ownerId
-            AttributeType: S
-          - AttributeName: id
-            AttributeType: S
-        KeySchema:
-          - AttributeName: ownerId
-            KeyType: HASH
-          - AttributeName: id
-            KeyType: RANGE
-    UserPool:
-      Type: AWS::Cognito::UserPool
-      Properties:
-        UserPoolName: tasks-${sls:stage}
-        UsernameAttributes:
-          - email
-        AutoVerifiedAttributes:
-          - email
-        Policies:
-          PasswordPolicy:
-            MinimumLength: 8
-            RequireLowercase: true
-            RequireUppercase: true
-            RequireNumbers: true
-            RequireSymbols: false
-    UserPoolClient:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        ClientName: tasks-api-${sls:stage}
-        UserPoolId: !Ref UserPool
-        GenerateSecret: false
-        ExplicitAuthFlows:
-          - ALLOW_USER_PASSWORD_AUTH
-          - ALLOW_USER_SRP_AUTH
-          - ALLOW_REFRESH_TOKEN_AUTH
-  Outputs:
-    UserPoolId:
-      Value: !Ref UserPool
-    UserPoolClientId:
-      Value: !Ref UserPoolClient
+  - ${file(./resources/table.yml)}
+  - Resources:
+      UserPool:
+        Type: AWS::Cognito::UserPool
+        Properties:
+          UserPoolName: tasks-${sls:stage}
+          UsernameAttributes:
+            - email
+          AutoVerifiedAttributes:
+            - email
+          Policies:
+            PasswordPolicy:
+              MinimumLength: 8
+              RequireLowercase: true
+              RequireUppercase: true
+              RequireNumbers: true
+              RequireSymbols: false
+      UserPoolClient:
+        Type: AWS::Cognito::UserPoolClient
+        Properties:
+          ClientName: tasks-api-${sls:stage}
+          UserPoolId: !Ref UserPool
+          GenerateSecret: false
+          ExplicitAuthFlows:
+            - ALLOW_USER_PASSWORD_AUTH
+            - ALLOW_USER_SRP_AUTH
+            - ALLOW_REFRESH_TOKEN_AUTH
+    Outputs:
+      UserPoolId:
+        Value: !Ref UserPool
+      UserPoolClientId:
+        Value: !Ref UserPoolClient
