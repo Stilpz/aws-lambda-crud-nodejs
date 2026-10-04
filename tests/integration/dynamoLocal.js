@@ -41,7 +41,9 @@ export const createTaskTable = async (lowLevel, tableName) => {
         ],
         KeySchema: TASK_TABLE_KEY_SCHEMA,
     }));
-    await waitUntilTableExists({ client: lowLevel, maxWaitTime: 20 }, { TableName: tableName });
+    // The SDK requires maxWaitTime to exceed minDelay (20 s by default), so the delays are set
+    // explicitly: a local table is ready almost at once and one second between polls is plenty.
+    await waitUntilTableExists({ client: lowLevel, maxWaitTime: 30, minDelay: 1, maxDelay: 2 }, { TableName: tableName });
 };
 
 export const deleteTaskTable = (lowLevel, tableName) =>
