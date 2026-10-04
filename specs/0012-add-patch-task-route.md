@@ -167,6 +167,8 @@ After the maintainer deploys to `dev`: `STAGE=dev ./scripts/smoke.sh` passes, an
 
 ## Amendment 1
 
+**Approved by the maintainer**, including the dates: deprecation 2026-10-03 and `Sunset` 2027-04-03, with the `Link` header pointing at the changelog on the repository's `main` branch.
+
 Written when implementation started, after specs 0007, 0011, 0013, 0016, 0017 and 0018 were merged into the branch. Reality differed from the draft in these points, so the spec was changed before any code:
 
 - **The policy requires `Sunset` and `Link`.** Section 4.2 of `docs/API_VERSIONING.md` (spec 0017) says every response of a deprecated operation carries `Deprecation`, `Sunset` and `Link: <...>; rel="deprecation"`, with at least 90 days between the release that deprecates and the `Sunset` date, and names this step as its first use. The draft's Decision 3 ("no `Sunset` yet") contradicts it. The sunset date is now sent from the start (2027-04-03, with the deprecation date 2026-10-03; both constants, to be moved at release time if needed), and the draft's rejection of `Link` applies only to the `successor-version` relation, not to `rel="deprecation"`. **Decision 3 was approved in its original form; this amendment needs re-approval by the maintainer.**
