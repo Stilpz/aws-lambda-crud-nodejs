@@ -1,19 +1,13 @@
-import { GetCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDb } from "./db.js";
 import { getOwnerId } from "./auth.js";
+import { taskRepository } from "./infrastructure/taskRepository.js";
 
 const getTask = async (event) => {
     const { id } = event.pathParameters;
 
     try {
-        const result = await dynamoDb.send(new GetCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { id },
-            ConsistentRead: true,
-        }));
+        const task = await taskRepository.findById(getOwnerId(event), id);
 
-        // A task owned by someone else is reported as missing so its existence is not revealed.
-        if (!result.Item || result.Item.ownerId !== getOwnerId(event)) {
+        if (!task) {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ message: "Task not found" }),
@@ -22,7 +16,7 @@ const getTask = async (event) => {
 
         return {
             statusCode: 200,
-            body: JSON.stringify(result.Item),
+            body: JSON.stringify(task),
         };
     } catch (error) {
         console.error("Error retrieving task:", error);

@@ -4,6 +4,7 @@ Thanks for helping improve this project. This guide covers the whole path of a c
 
 ## Ground rules
 
+- **Every change needs a spec.** Before writing code, a spec in [`specs/`](specs/README.md) describes the scope and acceptance criteria and is approved by the maintainer. Implement exactly what it says; new ideas become a new spec. Typo and documentation-only fixes are exempt. [`AGENTS.md`](AGENTS.md) holds the full working rules.
 - Every pull request targets `development`, never `main`, `staging` or `production`. See [Branching and Release Workflow](README.md#branching-and-release-workflow).
 - Work branches start from `development`. Names are lowercase, use hyphens, have 3 to 5 words, contain no spaces, accents or special characters, and do not end with a hyphen, for example `add-task-pagination`.
 - One logical change per branch and per commit. Unrelated fixes go in separate pull requests.
@@ -37,6 +38,7 @@ If your change depends on another open pull request, say so in your description 
 
 ## 3. Make the change
 
+- Start from the approved spec (or propose one in a pull request that adds only the spec) and stay inside its scope.
 - Keep the style of the file you edit (ES modules, and the indentation and quotes already used there; `npm run lint` enforces the rest).
 - Handlers read the table name from `process.env.TABLE_NAME` and the caller from `getOwnerId` in `src/auth.js`. Every query, update and delete must be scoped to the caller. See [Local Development](README.md#local-development) for how to add an endpoint.
 - If you add or change a route, status code or field, update [`docs/openapi.yaml`](docs/openapi.yaml) and the API tables in the README in the same pull request.
@@ -87,7 +89,7 @@ git rebase development
 
 ## 7. Open the pull request
 
-Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for what changed, why, how you tested it and a checklist. CI (lint and tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
+Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint and tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
 
 ## Reporting problems
 

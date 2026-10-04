@@ -17,44 +17,13 @@ const parseLimit = (value) => {
     return limit;
 };
 
-const decodeKey = (token) => {
-    try {
-        return JSON.parse(Buffer.from(token, "base64url").toString());
-    } catch {
-        return undefined;
-    }
-};
-
-const isNonEmptyString = (value) => typeof value === "string" && value !== "";
-
-// The token comes from the client, so only plain strings are accepted for the key
-// attributes, and the owner always comes from the caller's identity (never the token)
-// so a forged token cannot page through another user's tasks.
-const parseExclusiveStartKey = (token, ownerId) => {
-    if (token === undefined) {
-        return undefined;
-    }
-
-    const key = decodeKey(token);
-
-    if (!isNonEmptyString(key?.id) || !isNonEmptyString(key?.createdAt)) {
-        throw new InvalidPaginationError("nextToken is invalid");
-    }
-
-    return { id: key.id, createdAt: key.createdAt, ownerId };
-};
-
-export const parsePagination = (queryStringParameters, ownerId) => {
+// The page size is an HTTP concern and is validated here. nextToken is handed on as an opaque
+// cursor: only the repository knows what it contains.
+export const parsePagination = (queryStringParameters) => {
     const { limit, nextToken } = queryStringParameters ?? {};
 
     return {
         limit: parseLimit(limit),
-        exclusiveStartKey: parseExclusiveStartKey(nextToken, ownerId),
+        cursor: nextToken,
     };
 };
-
-// ownerId is left out: it is re-derived from the caller's identity when the token is read.
-export const encodeNextToken = (lastEvaluatedKey) =>
-    lastEvaluatedKey
-        ? Buffer.from(JSON.stringify({ id: lastEvaluatedKey.id, createdAt: lastEvaluatedKey.createdAt })).toString("base64url")
-        : null;
