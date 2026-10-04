@@ -1,6 +1,6 @@
 # 0012: Add the PATCH /tasks/{id} route and deprecate PUT
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `add-patch-task-route` (started from `development`)
 - **Roadmap step:** 11 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Amendments:** 1 (see the end of this spec)
@@ -111,17 +111,17 @@ Recommendation: ship `PATCH` and the deprecation in this spec; write a follow-up
 
 ## Acceptance criteria
 
-- [ ] `PATCH /tasks/{id}` with `{ "done": true }` answers `200` with the full updated task (all six fields, `done: true`); an empty body, a blank `title` or a wrong type answers `400` with the `{ message, errors }` shape; `Content-Type` other than JSON answers `415`; malformed JSON answers `422`; a missing task and another user's task answer `404` with the same body.
-- [ ] `PATCH` ignores `id`, `ownerId` and `createdAt` in the body, and changes only the fields sent.
-- [ ] `PUT /tasks/{id}` request validation, status codes and bodies are unchanged; the existing `tests/updateTask.test.js` assertions pass unchanged (new assertions for headers are added, none edited).
-- [ ] Every response of the `PUT` function, including `400`, `404`, `415`, `422` and `500`, carries `Deprecation: @<seconds>`, `Sunset: <HTTP-date>` (later than the deprecation date by at least 90 days) and `Link: <...>; rel="deprecation"`; the `PATCH` function sends none of them.
-- [ ] `TaskRepository.update` documents and returns the updated task; `DynamoTaskRepository` and `InMemoryTaskRepository` both do, covered by tests.
-- [ ] `docs/openapi.yaml` lints clean (`npm run lint:api`), contains `patchTask`, marks `updateTask` `deprecated: true`, documents the three headers on every `PUT` response except `401`, and its `PATCH` examples match the real responses.
-- [ ] `functions/patchTask.yml` defines the `patchTask` function on `PATCH /tasks/{id}` with the Cognito authorizer and `serverless.yml` includes it; no other line of the configuration changes, and `npx serverless print --stage dev` resolves it. Its handler path resolves to an exported function.
-- [ ] `scripts/smoke.sh` passes `bash -n`, checks `PATCH` own (`200`, returns the changed field) and foreign (`404`), and the `PUT` deprecation header.
-- [ ] README, `docs/ARCHITECTURE.md` and `CHANGELOG.md` describe `PATCH` first and `PUT` as deprecated (changelog `Added` and `Deprecated` entries); the English changes are listed for the Spanish mirror.
-- [ ] No idempotency code, table or header is present.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `PATCH /tasks/{id}` with `{ "done": true }` answers `200` with the full updated task (all six fields, `done: true`); an empty body, a blank `title` or a wrong type answers `400` with the `{ message, errors }` shape; `Content-Type` other than JSON answers `415`; malformed JSON answers `422`; a missing task and another user's task answer `404` with the same body.
+- [x] `PATCH` ignores `id`, `ownerId` and `createdAt` in the body, and changes only the fields sent.
+- [x] `PUT /tasks/{id}` request validation, status codes and bodies are unchanged; the existing `tests/updateTask.test.js` assertions pass unchanged (new assertions for headers are added, none edited).
+- [x] Every response of the `PUT` function, including `400`, `404`, `415`, `422` and `500`, carries `Deprecation: @<seconds>`, `Sunset: <HTTP-date>` (later than the deprecation date by at least 90 days) and `Link: <...>; rel="deprecation"`; the `PATCH` function sends none of them.
+- [x] `TaskRepository.update` documents and returns the updated task; `DynamoTaskRepository` and `InMemoryTaskRepository` both do, covered by tests.
+- [x] `docs/openapi.yaml` lints clean (`npm run lint:api`), contains `patchTask`, marks `updateTask` `deprecated: true`, documents the three headers on every `PUT` response except `401`, and its `PATCH` examples match the real responses.
+- [x] `functions/patchTask.yml` defines the `patchTask` function on `PATCH /tasks/{id}` with the Cognito authorizer and `serverless.yml` includes it; no other line of the configuration changes, and `npx serverless print --stage dev` resolves it. Its handler path resolves to an exported function.
+- [x] `scripts/smoke.sh` passes `bash -n`, checks `PATCH` own (`200`, returns the changed field) and foreign (`404`), and the `PUT` deprecation header.
+- [x] README, `docs/ARCHITECTURE.md` and `CHANGELOG.md` describe `PATCH` first and `PUT` as deprecated (changelog `Added` and `Deprecated` entries); the English changes are listed for the Spanish mirror.
+- [x] No idempotency code, table or header is present.
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 
