@@ -1,0 +1,22 @@
+Resources:
+  TaskTable:
+    Type: AWS::DynamoDB::Table
+    # Retain keeps the table (and its tasks) if the stack is removed or the table is replaced.
+    DeletionPolicy: ${param:deletionPolicy}
+    UpdateReplacePolicy: ${param:deletionPolicy}
+    Properties:
+      TableName: Tasks-${sls:stage}
+      BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: ${param:tableProtection}
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: ${param:tableProtection}
+      AttributeDefinitions:
+        - AttributeName: ownerId
+          AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ownerId
+          KeyType: HASH
+        - AttributeName: id
+          KeyType: RANGE

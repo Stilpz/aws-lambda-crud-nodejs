@@ -85,7 +85,7 @@ export class DynamoTaskRepository {
         const fields = UPDATABLE_FIELDS.filter((field) => changes[field] !== undefined);
 
         try {
-            await this.#client.send(new UpdateCommand({
+            const { Attributes } = await this.#client.send(new UpdateCommand({
                 TableName: this.#tableName,
                 Key: { ownerId, id },
                 UpdateExpression: "set " + fields.map((field) => `#${field} = :${field}`).join(", "),
@@ -94,6 +94,8 @@ export class DynamoTaskRepository {
                 ConditionExpression: TASK_EXISTS,
                 ReturnValues: "ALL_NEW",
             }));
+
+            return Attributes;
         } catch (error) {
             throw isConditionalCheckFailure(error) ? new TaskNotFoundError() : error;
         }

@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { dynamoDb } from "../src/infrastructure/dynamoClient.js";
+import { logger } from "../src/infrastructure/observability.js";
 
 export const OWNER_ID = "user-1";
 
@@ -26,7 +27,7 @@ const COMMANDS = {
 
 // Replaces the document client's send() so no request reaches AWS. Returns a spy that is
 // called with the input of every command of the given kind ("put", "get", ...) it receives.
-export const mockDynamo = (method, { result, error } = {}) => {
+export const mockDynamo = (method, { result = {}, error } = {}) => {
     const spy = vi.fn();
 
     vi.spyOn(dynamoDb, "send").mockImplementation(async (command) => {
@@ -51,4 +52,5 @@ export const conditionalCheckFailed = () =>
         name: "ConditionalCheckFailedException",
     });
 
-export const silenceErrorLogs = () => vi.spyOn(console, "error").mockImplementation(() => {});
+// Unknown errors are logged through the Powertools logger, so that is what tests silence and inspect.
+export const silenceErrorLogs = () => vi.spyOn(logger, "error").mockImplementation(() => {});

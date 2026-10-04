@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Tasks API
-  version: 1.0.0
+  version: 1.2.0
   description: |
     Serverless REST API for managing personal tasks (AWS Lambda, API Gateway HTTP API,
     DynamoDB, Amazon Cognito).
@@ -16,6 +16,18 @@ info:
 
     **Consistency.** `GET /tasks` and `GET /tasks/{id}` both use consistent reads: a task is
     readable and appears in the list as soon as it is created or updated.
+
+    **CORS.** Browsers can call the API from the origins allowed for the stage (an explicit list,
+    never a wildcard). API Gateway answers the preflight `OPTIONS` request itself, without a
+    token; `Authorization` and `Content-Type` are the allowed request headers, and `Deprecation`
+    and `Sunset` are exposed to scripts. Credentials (cookies) are not allowed.
+
+    **Stability.** Changes follow the policy in `docs/API_VERSIONING.md` of the repository:
+    breaking changes need a new major version and are announced and deprecated with
+    `Deprecation` and `Sunset` headers, and `info.version` always equals the release tag.
+    Pagination tokens (`nextToken`) are opaque and not guaranteed to be valid across
+    deployments; when one is rejected with `400`, start the listing again. Task ids are opaque
+    UUIDs.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
@@ -159,11 +171,61 @@ paths:
                 $ref: "#/components/schemas/Message"
               example:
                 message: Could not retrieve task
+    patch:
+      tags: [Tasks]
+      operationId: patchTask
+      summary: Partially update a task
+      description: |
+        Only the fields sent are changed, and at least one of `done`, `title` or `description` is
+        required. Other fields (such as `id`, `ownerId` or `createdAt`) are ignored. Answers with the
+        task as it is after the change. The request must use `Content-Type: application/json`.
+
+        This is the replacement for the deprecated `PUT /tasks/{id}`, which accepts the same body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTask"
+            example:
+              done: true
+      responses:
+        "200":
+          description: The updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/MalformedJson"
+        "500":
+          description: Could not update task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Could not update task
     put:
       tags: [Tasks]
       operationId: updateTask
-      summary: Partially update a task
+      summary: Partially update a task (deprecated, use PATCH)
+      deprecated: true
       description: |
+        **Deprecated: use `PATCH /tasks/{id}`**, which accepts the same body and answers with the
+        updated task instead of a message. This operation keeps working unchanged until the sunset
+        date, 2027-04-03, and may be removed after it. Every response of this operation carries the
+        `Deprecation`, `Sunset` and `Link` headers (responses produced by API Gateway itself, such as
+        `401`, do not).
+
         Partial update despite the `PUT` verb: only the fields sent are changed, and at least one
         of `done`, `title` or `description` is required. Other fields (such as `id`, `ownerId`
         or `createdAt`) are ignored. The request must use `Content-Type: application/json`.
@@ -178,6 +240,13 @@ paths:
       responses:
         "200":
           description: Task updated
+          headers:
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
           content:
             application/json:
               schema:
@@ -185,17 +254,78 @@ paths:
               example:
                 message: Task updated successfully
         "400":
-          $ref: "#/components/responses/ValidationError"
+          description: The body failed validation
+          headers:
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+              example:
+                message: Event object failed validation
+                errors:
+                  - "/body must have required property 'title'"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: The task does not exist or belongs to another user
+          headers:
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Task not found
         "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
+          description: "`Content-Type` is not `application/json`"
+          headers:
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Unsupported Media Type
         "422":
-          $ref: "#/components/responses/MalformedJson"
+          description: The body is not valid JSON
+          headers:
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Invalid or malformed JSON was provided
         "500":
           description: Could not update task
+          headers:
+            Deprecation:
+              $ref: "#/components/headers/Deprecation"
+            Sunset:
+              $ref: "#/components/headers/Sunset"
+            Link:
+              $ref: "#/components/headers/Link"
           content:
             application/json:
               schema:
@@ -247,6 +377,28 @@ components:
       schema:
         type: string
         format: uuid
+  headers:
+    Deprecation:
+      description: |
+        When the operation was deprecated, as a structured-field date (RFC 9745): `@` followed by
+        Unix seconds.
+      schema:
+        type: string
+        example: "@1790985600"
+    Sunset:
+      description: |
+        The HTTP-date (RFC 8594) after which the operation may be removed. It is at least 90 days
+        after the release that deprecated it.
+      schema:
+        type: string
+        example: Sat, 03 Apr 2027 00:00:00 GMT
+    Link:
+      description: |
+        The migration notes of the deprecation: a URL with `rel="deprecation"` (RFC 9745). The
+        replacement is `PATCH` on the same path.
+      schema:
+        type: string
+        example: <https://github.com/Stilpz/aws-lambda-crud-nodejs/blob/main/CHANGELOG.md>; rel="deprecation"
   schemas:
     Message:
       type: object

@@ -4,12 +4,90 @@ org: stivencardona
 service: aws-lambda-crud-nodejs
 frameworkVersion: "4"
 
+# Values that differ by stage. "default" applies to every stage that is not listed, so staging, prod
+# and any other name get the stricter values; dev opts out. alarmEmail is never committed: pass it
+# at deploy time with --param="alarmEmail=<address>" (empty means no email subscription).
+#
+# Hardening (spec 0010): the default is strict, so a typo in a stage name is protected, and dev is
+# the only stage that opts out. Protected stages keep their data when the stack is removed and refuse
+# deletion; "serverless remove" fails there until protection is turned off in a reviewed change.
+#   deletionPolicy      what CloudFormation does with the table and user pool when they leave the stack
+#   tableProtection     deletion protection and point-in-time recovery on the table
+#   userPoolProtection  ACTIVE blocks deleting the user pool
+#   mfa                 OFF, or OPTIONAL (users may enrol an authenticator app)
+#   authFlows           sign-in flows the app client allows; the admin flow is only for scripts/smoke.sh
+#   throttleRate/Burst  requests per second and burst allowed on every route
+#
+# Origins that may call the API from a browser, one list per stage. A stage that is not listed
+# (a personal stage in a fork) gets the local development origin only. Replace the example.com
+# placeholders with the real frontend domains when they exist.
+stages:
+  default:
+    params:
+      logRetentionInDays: 90
+      logLevel: INFO
+      alarmEmail: ""
+      deletionPolicy: Retain
+      tableProtection: true
+      userPoolProtection: ACTIVE
+      mfa: OPTIONAL
+      authFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      throttleRate: 50
+      throttleBurst: 100
+      webOrigins:
+        - http://localhost:5173
+  dev:
+    params:
+      logRetentionInDays: 7
+      logLevel: DEBUG
+      deletionPolicy: Delete
+      tableProtection: false
+      userPoolProtection: INACTIVE
+      mfa: "OFF"
+      authFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      throttleRate: 20
+      throttleBurst: 40
+  staging:
+    params:
+      webOrigins:
+        - https://staging.app.example.com
+  prod:
+    params:
+      webOrigins:
+        - https://app.example.com
+
 provider:
   name: aws
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
+  tracing:
+    lambda: true
+  logRetentionInDays: ${param:logRetentionInDays}
   httpApi:
+    cors:
+      allowedOrigins: ${param:webOrigins}
+      allowedHeaders:
+        - Authorization
+        - Content-Type
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      exposedResponseHeaders:
+        - Deprecation
+        - Sunset
+      maxAge: 3600
     authorizers:
       cognitoAuthorizer:
         type: jwt
@@ -24,111 +102,24 @@ provider:
           - !Ref UserPoolClient
   environment:
     TABLE_NAME: !Ref TaskTable
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - dynamodb:PutItem
-            - dynamodb:GetItem
-            - dynamodb:Query
-            - dynamodb:UpdateItem
-            - dynamodb:DeleteItem
-          Resource:
-            - !GetAtt TaskTable.Arn
+    STAGE: ${sls:stage}
+    POWERTOOLS_SERVICE_NAME: ${self:service}
+    POWERTOOLS_METRICS_NAMESPACE: TasksApi
+    POWERTOOLS_LOG_LEVEL: ${param:logLevel}
+  # No provider-level IAM statements: each function declares the one DynamoDB action it needs in its
+  # own file, and a function without statements (hello) gets a role with logging permission only.
 
 functions:
-  hello:
-    handler: src/handlers/hello.hello
-    events:
-      - httpApi:
-          path: /
-          method: get
-  createTask:
-    handler: src/handlers/addTask.addTask
-    events:
-      - httpApi:
-          path: /tasks
-          method: post
-          authorizer:
-            name: cognitoAuthorizer
-  getTasks:
-    handler: src/handlers/getTasks.getTasks
-    events:
-      - httpApi:
-          path: /tasks
-          method: get
-          authorizer:
-            name: cognitoAuthorizer
-  getTask:
-    handler: src/handlers/getTask.getTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: get
-          authorizer:
-            name: cognitoAuthorizer
-  updateTask:
-    handler: src/handlers/updateTask.updateTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: put
-          authorizer:
-            name: cognitoAuthorizer
-  deleteTask:
-    handler: src/handlers/deleteTask.deleteTask
-    events:
-      - httpApi:
-          path: /tasks/{id}
-          method: delete
-          authorizer:
-            name: cognitoAuthorizer
+  - ${file(./functions/hello.yml)}
+  - ${file(./functions/createTask.yml)}
+  - ${file(./functions/getTasks.yml)}
+  - ${file(./functions/getTask.yml)}
+  - ${file(./functions/updateTask.yml)}
+  - ${file(./functions/patchTask.yml)}
+  - ${file(./functions/deleteTask.yml)}
 
 resources:
-  Resources:
-    TaskTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Tasks-${sls:stage}
-        BillingMode: PAY_PER_REQUEST
-        AttributeDefinitions:
-          - AttributeName: ownerId
-            AttributeType: S
-          - AttributeName: id
-            AttributeType: S
-        KeySchema:
-          - AttributeName: ownerId
-            KeyType: HASH
-          - AttributeName: id
-            KeyType: RANGE
-    UserPool:
-      Type: AWS::Cognito::UserPool
-      Properties:
-        UserPoolName: tasks-${sls:stage}
-        UsernameAttributes:
-          - email
-        AutoVerifiedAttributes:
-          - email
-        Policies:
-          PasswordPolicy:
-            MinimumLength: 8
-            RequireLowercase: true
-            RequireUppercase: true
-            RequireNumbers: true
-            RequireSymbols: false
-    UserPoolClient:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        ClientName: tasks-api-${sls:stage}
-        UserPoolId: !Ref UserPool
-        GenerateSecret: false
-        ExplicitAuthFlows:
-          - ALLOW_USER_PASSWORD_AUTH
-          - ALLOW_USER_SRP_AUTH
-          - ALLOW_REFRESH_TOKEN_AUTH
-  Outputs:
-    UserPoolId:
-      Value: !Ref UserPool
-    UserPoolClientId:
-      Value: !Ref UserPoolClient
+  - ${file(./resources/table.yml)}
+  - ${file(./resources/api.yml)}
+  - ${file(./resources/auth.yml)}
+  - ${file(./resources/observability.yml)}

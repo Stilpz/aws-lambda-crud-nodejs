@@ -40,6 +40,8 @@ export class InMemoryTaskRepository {
                 task[field] = changes[field];
             }
         }
+
+        return { ...task };
     }
 
     async delete(ownerId, id) {
