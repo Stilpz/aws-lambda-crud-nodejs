@@ -20,6 +20,7 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - `GET /tasks` is now strongly consistent: a task created or updated is listed immediately. Before, the listing read a secondary index and could miss a task created a moment earlier.
 - New task ids are time-sortable UUIDs (version 7) instead of random version 4 UUIDs. Ids stay UUIDs, as `docs/openapi.yaml` declares (`format: uuid`); clients must treat them as opaque.
 - The table is keyed by `ownerId` (partition) and `id` (sort) and has no secondary index. It is named `Tasks-<stage>`, and the IAM policy no longer grants access to index resources.
+- Hardening ([spec 0010](specs/0010-harden-production-resources.md)): outside `dev` (every stage name other than `dev`) the task table and the user pool are retained when the stack is removed, protected against deletion, the table has point-in-time recovery, users may turn on authenticator-app MFA, and the app client no longer allows `USER_PASSWORD_AUTH` (SRP and refresh stay). Every route is throttled (429 above the limit), and each function has its own role limited to the one DynamoDB action it uses. The smoke test signs in through the admin flow in every stage.
 - Log groups now keep logs for 7 days in `dev` and 90 days in other stages (they never expired before), and unknown errors are logged as JSON through the Powertools logger instead of plain text.
 - `docs/openapi.yaml` `info.version` is `1.2.0`, and its description links the stability policy and states that pagination tokens are opaque and not valid across deployments (this was `1.0.0` at the releases `1.0.0` and `1.1.0`).
 
@@ -33,6 +34,7 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - **A `nextToken` issued before the deploy is rejected with `400`.** Clients restart the listing from the first page when a stored token is rejected. Tokens are opaque and were never promised to survive a deployment.
 - **New ids are version 7 UUIDs.** Existing clients that treat ids as opaque UUIDs need no change.
 - Deploy the API stack and its table replacement together; there is no separate deployment of either.
+- **Protected stages.** Any stage other than `dev` is now protected: `serverless remove` fails there until it is redeployed with `--param="deletionPolicy=Delete" --param="tableProtection=false" --param="userPoolProtection=INACTIVE"`, and a retained table keeps its name after a teardown. A client that signs in with `USER_PASSWORD_AUTH` outside `dev` must switch to SRP. Applying this to an existing stage updates its resources in place (no replacement).
 - The deploy creates an SNS topic and three alarms. To receive alarm emails, deploy with `--param="alarmEmail=<address>"` and confirm the subscription email; without the parameter no email subscription is created.
 
 ## [1.1.0] - 2026-10-03

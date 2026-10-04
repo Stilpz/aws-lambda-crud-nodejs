@@ -1,6 +1,6 @@
 # 0010: Harden production resources, stage-aware
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `harden-production-resources` (started from `development`)
 - **Roadmap step:** 9 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
@@ -118,16 +118,16 @@ Principles: least privilege and fail-safe defaults (security), SRP (the profile 
 
 ## Acceptance criteria
 
-- [ ] `serverless print --stage dev` and `--stage staging` show the values in the profile table, and `--stage some-other-name` equals the `staging` values for every hardening property.
-- [ ] `serverless print` for `staging` shows on `TaskTable`: `DeletionPolicy` and `UpdateReplacePolicy` `Retain`, `DeletionProtectionEnabled: true`, `PointInTimeRecoveryEnabled: true`; on `UserPool`: `Retain`, `DeletionProtection: ACTIVE`, `MfaConfiguration: OPTIONAL`, and `EnabledMfas` guarded by a condition that is true; and for `dev` the lenient values (`Delete`, `false`, `INACTIVE`, `OFF`, the condition false so `EnabledMfas` is absent).
-- [ ] The `UserPoolClient` flows in `staging` are exactly `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH`; in `dev` they also include `ALLOW_USER_PASSWORD_AUTH`.
-- [ ] `HttpApiStage` has the throttling limits per stage and still has `DetailedMetricsEnabled: false`.
-- [ ] No provider-level `iam` statements remain. Each of the five task functions has its own role with exactly the one DynamoDB action in the table above on the table ARN, and the shared role has none; `hello` has no DynamoDB access. Verified in `serverless print` (the functions' `iam.role.statements` and the absent provider `iam` block); the generated roles are confirmed by the maintainer with `serverless package`.
-- [ ] No statement in the resolved configuration allows `dynamodb:*`, a wildcard resource for DynamoDB, or an `/index/*` resource.
-- [ ] `scripts/smoke.sh` uses `admin-initiate-auth` with `ADMIN_USER_PASSWORD_AUTH`, no longer mentions `USER_PASSWORD_AUTH` in code, and `bash -n scripts/smoke.sh` accepts it.
-- [ ] No change under `src/` or `tests/` (this spec is infrastructure, script and docs only), and `docs/openapi.yaml` routes and schemas are unchanged.
-- [ ] README, ARCHITECTURE and the Spanish references describe the profile, the allowed flows per stage, the retain-and-recover runbook and why removal is blocked in strict stages, with matching structure in both languages.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `serverless print --stage dev` and `--stage staging` show the values in the profile table, and `--stage some-other-name` equals the `staging` values for every hardening property.
+- [x] `serverless print` for `staging` shows on `TaskTable`: `DeletionPolicy` and `UpdateReplacePolicy` `Retain`, `DeletionProtectionEnabled: true`, `PointInTimeRecoveryEnabled: true`; on `UserPool`: `Retain`, `DeletionProtection: ACTIVE`, `MfaConfiguration: OPTIONAL`, and `EnabledMfas` guarded by a condition that is true; and for `dev` the lenient values (`Delete`, `false`, `INACTIVE`, `OFF`, the condition false so `EnabledMfas` is absent).
+- [x] The `UserPoolClient` flows in `staging` are exactly `ALLOW_USER_SRP_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`, `ALLOW_ADMIN_USER_PASSWORD_AUTH`; in `dev` they also include `ALLOW_USER_PASSWORD_AUTH`.
+- [x] `HttpApiStage` has the throttling limits per stage and still has `DetailedMetricsEnabled: false`.
+- [x] No provider-level `iam` statements remain. Each of the five task functions has its own role with exactly the one DynamoDB action in the table above on the table ARN, and the shared role has none; `hello` has no DynamoDB access. Verified in `serverless print` (the functions' `iam.role.statements` and the absent provider `iam` block); the generated roles are confirmed by the maintainer with `serverless package`.
+- [x] No statement in the resolved configuration allows `dynamodb:*`, a wildcard resource for DynamoDB, or an `/index/*` resource.
+- [x] `scripts/smoke.sh` uses `admin-initiate-auth` with `ADMIN_USER_PASSWORD_AUTH`, no longer mentions `USER_PASSWORD_AUTH` in code, and `bash -n scripts/smoke.sh` accepts it.
+- [x] No change under `src/` or `tests/` (this spec is infrastructure, script and docs only), and `docs/openapi.yaml` routes and schemas are unchanged.
+- [x] README, ARCHITECTURE and the Spanish references describe the profile, the allowed flows per stage, the retain-and-recover runbook and why removal is blocked in strict stages, with matching structure in both languages.
+- [x] `npm run lint` and `npm test` pass.
 - [ ] After the maintainer deploys (post-deploy, to `dev` first, then `staging` when it exists): `STAGE=dev ./scripts/smoke.sh` and `STAGE=staging ./scripts/smoke.sh` pass; in staging `initiate-auth --auth-flow USER_PASSWORD_AUTH` fails with `NotAuthorizedException` or an unsupported-flow error; `aws dynamodb describe-table` shows deletion protection and `describe-continuous-backups` shows point-in-time recovery enabled; a burst above the limit returns `429`; each function can do its own operation and nothing else (a forced `AccessDenied` is not required).
 
 ## Verification
@@ -182,6 +182,13 @@ Found while implementing; the Decisions below are unchanged.
 2. **The app client flows are a per-stage list parameter** (`authFlows`) instead of a yes/no `passwordAuthFlow`, so the exact flows can be read from `serverless print`. The profile meaning is the same.
 3. **`EnabledMfas` is guarded by a CloudFormation condition** (`MfaEnabled`, true when the `mfa` parameter is not `OFF`), because Cognito wants `EnabledMfas` removed, not empty, when MFA is `OFF`. A condition with `AWS::NoValue` removes the property; `print` shows the condition, not its result. The CI template validation already keeps `Conditions` (spec 0009).
 4. **The `HttpApiStage` extension lives in a new `resources/api.yml`**, included from `serverless.yml`, as the layout from spec 0011 asks for new resource definitions.
+
+## Implementation notes
+
+- Verified with the commands above, using `serverless print` only: dev, staging and an unlisted stage name show the profile values; the unlisted stage equals staging for every resolved resource once the stage name is normalized; no provider `iam` block remains and each task function declares exactly its one DynamoDB action on the table ARN while `hello` declares none; the client flows are exactly the expected lists; `DefaultRouteSettings` carries the per-stage limits and `DetailedMetricsEnabled: false`; no `dynamodb:*` and no `/index/` appear. `npm run lint` clean, `npm test` 139 tests passed (unchanged: no file under `src/` or `tests/` changed in this spec), `bash -n scripts/smoke.sh` accepts the script, `docs/openapi.yaml` is unchanged.
+- The generated roles (own role per function, shared role with logging only), the effect of the `HttpApiStage` extension and Cognito's acceptance of `EnabledMfas` behind the condition are confirmed by `serverless package` or the first deploy, which this environment does not run. A throwaway `package` earlier showed that a function-level role does not inherit provider statements and that the stage extension applies.
+- A consequence worth knowing: contributors who used a personal stage name now get a protected stage, so the contributor guide points to `dev` and the README "Protected stages" section shows how to remove a protected stage with `--param` overrides. Parameters given with `--param` arrive as strings (`"false"`); CloudFormation accepts them for Boolean properties.
+- The post-deploy criterion stays open for the maintainer.
 
 ## Decisions to confirm
 
