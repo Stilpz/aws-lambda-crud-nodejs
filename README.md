@@ -19,6 +19,7 @@ A serverless REST API for managing tasks, built with Node.js on AWS Lambda, API 
 - [Local Development](#local-development)
 - [Testing and Linting](#testing-and-linting)
 - [Deployment and Cleanup](#deployment-and-cleanup)
+- [Observability](#observability)
 - [Known Limitations](#known-limitations)
 - [Security Notes](#security-notes)
 - [Troubleshooting](#troubleshooting)
@@ -64,8 +65,9 @@ Client ──HTTP + JWT──▶ API Gateway (HTTP API) ──▶ Lambda functio
 | Authentication | Amazon Cognito user pool and app client, JWT authorizer on the HTTP API |
 | Request handling | [middy](https://middy.js.org/): JSON body parsing, JSON Schema validation (Ajv) and error handling |
 | SDK | AWS SDK for JavaScript v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`), document client |
+| Observability | [Powertools for AWS Lambda](https://docs.powertools.aws.dev/lambda/typescript/latest/): JSON logs with a correlation id, X-Ray traces, a cold start metric, log retention and CloudWatch alarms |
 
-The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. The IAM role is limited to `PutItem`, `GetItem`, `Query`, `UpdateItem` and `DeleteItem` on the table and its indexes.
+The DynamoDB table, the Cognito user pool and app client, the authorizer and the IAM permissions the functions need are declared in `serverless.yml` and the files it includes from `functions/` and `resources/`, so a single deploy creates everything. Each function has its own IAM role, limited to the one DynamoDB action it needs on the table: `PutItem` for `createTask`, `GetItem` for `getTask`, `Query` for `getTasks`, `UpdateItem` for `updateTask` and `DeleteItem` for `deleteTask`. `hello` has no access to the table.
 
 ## Project Structure
 
@@ -73,7 +75,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 .
 ├── serverless.yml      # Service, provider (authorizer, IAM role, environment) and the includes below
 ├── functions/          # One file per Lambda function: handler and HTTP route
-├── resources/          # table.yml (DynamoDB) and auth.yml (Cognito user pool, app client, stack outputs)
+├── resources/          # table.yml (DynamoDB), auth.yml (Cognito user pool, app client, stack outputs) and api.yml (route throttling) and observability.yml (alarm topic and alarms)
 ├── package.json        # Dependencies and the test and lint scripts
 ├── LICENSE             # MIT license
 ├── CONTRIBUTING.md     # Contribution guide for forks
@@ -96,11 +98,12 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   │   ├── auth.js         # Reads the caller's user id from the JWT claims
 │   │   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
 │   │   ├── errorBoundary.js # The one place that maps domain and input errors to HTTP
+│   │   ├── withObservability.js # Outermost wrapper of every handler: logger context, correlation id, tracing, cold start metric
 │   │   ├── schemas.js      # JSON Schemas for the create and update bodies
 │   │   └── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
 │   ├── application/    # One use case per operation: createTask, getTask, listTasks, updateTask, deleteTask
 │   ├── domain/         # Task type, domain errors and the TaskRepository port (imports nothing else)
-│   ├── infrastructure/ # DynamoTaskRepository and the DynamoDB client
+│   ├── infrastructure/ # DynamoTaskRepository, the (traced) DynamoDB client and the Powertools logger, metrics and tracer
 │   └── container.js    # Composition root: wires the use cases to the infrastructure
 └── tests/              # Vitest unit tests; DynamoDB is mocked, nothing reaches AWS
 ```
@@ -153,7 +156,14 @@ Authorization: Bearer <token>
 
 Requests without a token, or with an invalid or expired one, are rejected by API Gateway with `401 Unauthorized` before any function runs.
 
-The deploy exports two values as CloudFormation stack outputs: `UserPoolId` and `UserPoolClientId`. The pool signs users in with their email, requires passwords of at least 8 characters with lowercase, uppercase and a number, and the app client allows the `USER_PASSWORD_AUTH`, `USER_SRP_AUTH` and refresh token flows.
+The deploy exports two values as CloudFormation stack outputs: `UserPoolId` and `UserPoolClientId`. The pool signs users in with their email, requires passwords of at least 8 characters with lowercase, uppercase and a number, and the app client allows the flows below, which depend on the stage:
+
+| Stage | Allowed flows |
+| --- | --- |
+| `dev` | `USER_PASSWORD_AUTH`, `USER_SRP_AUTH`, refresh token, and the admin password flow used by `scripts/smoke.sh` |
+| Every other stage (`staging`, `prod`, any other name) | `USER_SRP_AUTH`, refresh token and the admin password flow. `USER_PASSWORD_AUTH` is rejected, so applications sign in with SRP (a Cognito SDK) |
+
+Outside `dev`, users may also turn on multi-factor authentication with an authenticator app (software token); it is optional and off for users who do not enrol. In `dev` MFA is off.
 
 The steps below use the AWS CLI. Replace the stack name if your stage is not `dev`, and use your own email and password.
 
@@ -193,6 +203,15 @@ TOKEN=$(aws cognito-idp initiate-auth --region $REGION --auth-flow USER_PASSWORD
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" $API_URL/tasks
+```
+
+This command uses `USER_PASSWORD_AUTH`, which only `dev` allows. In another stage, get a token for manual testing with your AWS credentials through the admin flow (it needs the permission `cognito-idp:AdminInitiateAuth`, so it is not available to apps):
+
+```bash
+TOKEN=$(aws cognito-idp admin-initiate-auth --region $REGION --user-pool-id "$USER_POOL_ID" \
+  --auth-flow ADMIN_USER_PASSWORD_AUTH --client-id "$CLIENT_ID" \
+  --auth-parameters "USERNAME=ana@example.com,PASSWORD=Example1234" \
+  --query AuthenticationResult.IdToken --output text)
 ```
 
 Tokens expire after one hour by default. Repeat step 3 to get a new one. Keep the `$TOKEN` variable in the same terminal session where you run the `curl` examples below.
@@ -344,7 +363,7 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" $API_URL/tasks/0b9f5c1e-6c2a-4f
 
 ### Refreshing a token
 
-Keep the whole authentication result when you sign in, not only the ID token:
+Keep the whole authentication result when you sign in, not only the ID token (this example uses `USER_PASSWORD_AUTH`, so it works in `dev` only):
 
 ```bash
 AUTH=$(aws cognito-idp initiate-auth --region $REGION --auth-flow USER_PASSWORD_AUTH \
@@ -556,11 +575,56 @@ serverless logs -f getTask --tail      # stream a function's logs
 serverless remove                      # delete the whole stack
 ```
 
-`serverless remove` also deletes the task table, the Cognito user pool, and with them every task and user.
+In `dev`, `serverless remove` also deletes the task table, the Cognito user pool, and with them every task and user. In any other stage the table and the user pool are protected, see below.
+
+### Protected stages
+
+`dev` is the throwaway stage. Every other stage name (`staging`, `prod`, and also a personal or mistyped name) gets the strict values from the `stages` parameters at the top of `serverless.yml`, so an unknown name is protected rather than exposed:
+
+| Parameter | `dev` | Every other stage | What it does |
+| --- | --- | --- | --- |
+| `deletionPolicy` | `Delete` | `Retain` | Whether the table and the user pool survive when they leave the stack (removal or replacement) |
+| `tableProtection` | `false` | `true` | Deletion protection and point-in-time recovery on the table |
+| `userPoolProtection` | `INACTIVE` | `ACTIVE` | Blocks deleting the user pool |
+| `mfa` | `OFF` | `OPTIONAL` | Authenticator-app MFA that users may turn on |
+| `authFlows` | includes `USER_PASSWORD_AUTH` | SRP, refresh and the admin flow only | Sign-in flows of the app client |
+| `throttleRate`, `throttleBurst` | 20, 40 | 50, 100 | Requests per second and burst allowed on every route; above that API Gateway answers `429` |
+
+- **Removing a protected stage fails on purpose.** To remove one (for example a personal test stage), first redeploy it with protection off, then remove it: `serverless deploy --stage <name> --param="deletionPolicy=Delete" --param="tableProtection=false" --param="userPoolProtection=INACTIVE"` and then `serverless remove --stage <name>`. For experiments, use the `dev` stage in your own account instead.
+- **A retained table blocks reusing its name.** After a deliberate teardown the `Tasks-<stage>` table still exists, and deploying the same stage again fails on the name until you delete the table or import it into the new stack.
+- **Recovery.** Point-in-time recovery restores the table to any second in the last 35 days (the DynamoDB default), always into a new table: `aws dynamodb restore-table-to-point-in-time --source-table-name Tasks-<stage> --target-table-name Tasks-<stage>-restored --use-latest-restorable-time`. Then check the data and point the stack at the restored table (or copy the items back); the code reads the table name from `TABLE_NAME`.
+- **Per-function permissions.** Each function declares its own DynamoDB action in `functions/<name>.yml`. A new function without statements has no table access, so give it one before using the table.
 
 Each stage has its own table, named `Tasks-<stage>`, and its own user pool, named `tasks-<stage>`, so stages can share an AWS account and region without touching each other's data or users.
 
 Upgrading from a version that used the table `TaskTable-<stage>` replaces it: the deploy creates `Tasks-<stage>` with the new key and deletes the old table, **and the tasks in it are lost**. Copy them first if they matter; the project does not provide a migration for this. Pagination tokens issued before the change are rejected with `400`, and new tasks get version 7 UUIDs.
+
+## Observability
+
+Every handler runs inside `withObservability` (`src/handlers/withObservability.js`), built on [Powertools for AWS Lambda](https://docs.powertools.aws.dev/lambda/typescript/latest/). Use cases and the domain log nothing: an unknown error is logged once, by the error boundary.
+
+| Signal | Where to look |
+| --- | --- |
+| Logs | CloudWatch Logs group `/aws/lambda/<service>-<stage>-<function>`, or `serverless logs -f <function> --tail` |
+| Traces | AWS X-Ray, service map and traces for the function; each DynamoDB call is a subsegment. API Gateway HTTP API does not appear in the trace, so a trace starts at the function |
+| Metrics | CloudWatch namespace `TasksApi`, metric `ColdStart` (dimensions `service`, `stage`), emitted on a container's first request. API Gateway and Lambda publish their own metrics as usual |
+| Alarms | CloudWatch alarms named `<service>-<stage>-api-5xx`, `-lambda-throttles` and `-api-latency-p95`, all notifying the SNS topic `<service>-<stage>-alarms` |
+
+**Log fields.** Each line is JSON with `level`, `message`, `timestamp`, `service`, `xray_trace_id`, `correlation_id` and the Lambda context (`cold_start`, `function_name`, `function_memory_size`, `function_arn`, `function_request_id`). Errors add an `error` object with `name`, `message`, `location` and `stack`; the stack stays in the logs and is never returned to a client. The incoming event, request body, headers and token are never logged.
+
+**Correlation id.** `correlation_id` is the API Gateway request id (`requestContext.requestId`), the same id API Gateway uses for the request, so a failure in the logs can be tied to one call.
+
+**Per stage.** Log retention is 7 days in `dev` and 90 days in every other stage; the log level is `DEBUG` in `dev` and `INFO` elsewhere. These are the `stages` parameters at the top of `serverless.yml`.
+
+**Alarms.** They fire on any `5xx` from the API in 5 minutes, any Lambda throttle (HTTP API publishes no throttle metric; throttled calls are `429`s counted in `4xx`) and a p95 latency above 1500 ms for 15 minutes. An idle API does not alarm. To receive them by email, deploy with the address as a parameter and confirm the subscription email AWS sends; the address is never committed:
+
+```bash
+serverless deploy --stage dev --param="alarmEmail=you@example.com"
+```
+
+Other subscribers (chat, paging) can be added to the same SNS topic without changing the alarms.
+
+**Adding a function.** Wrap its handler with `withObservability`, and add the function to the `LambdaThrottlesAlarm` metric list in `resources/observability.yml` (one entry per function).
 
 ## Known Limitations
 
@@ -569,7 +633,7 @@ This is a learning-oriented project, so it leaves out several things a productio
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
 - **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility. Its deprecation will follow the [deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal).
-- **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.
+- **Throttling is one limit for every route** (see [Protected stages](#protected-stages)), with no per-user limit, and there is no custom domain.
 - **Local invocation needs hand-written authorizer claims** and still uses the deployed table.
 
 ## Security Notes
@@ -577,10 +641,11 @@ This is a learning-oriented project, so it leaves out several things a productio
 - **Identity comes from the verified token, never from the request.** `ownerId` is the `sub` claim that API Gateway has already validated, and no endpoint accepts an owner from the body, path or query. A forged `nextToken` cannot reach another user's tasks either: the owner part of the cursor is rebuilt from the token.
 - **Another user's task is a `404`, not a `403`**, so the API does not reveal which task ids exist.
 - **Tokens are credentials.** Do not log them, paste them in issues or commit them. An ID token also carries the user's email.
-- **`USER_PASSWORD_AUTH` is convenient for testing and scripts**, but it sends the password to Cognito from your code. For real applications prefer the SRP flow of a Cognito SDK, or the hosted UI with PKCE.
+- **`USER_PASSWORD_AUTH` is convenient for testing and scripts**, but it sends the password to Cognito from your code. For real applications prefer the SRP flow of a Cognito SDK, or the hosted UI with PKCE. Only `dev` allows `USER_PASSWORD_AUTH`; the app client of every other stage rejects it.
 - **`admin-create-user` and `admin-set-user-password` skip email verification.** Use them for tests only.
 - **Everything is HTTPS.** API Gateway does not serve plain HTTP.
-- **The Lambda role is least-privilege**: five DynamoDB actions on one table and its indexes, nothing else.
+- **Each function's role is least-privilege**: one DynamoDB action on one table, nothing else, and `hello` has no table access.
+- **The table and the user pool are protected outside `dev`**: retained on removal, deletion protection, point-in-time recovery for the table, and optional MFA for users (see [Protected stages](#protected-stages)).
 - **Each stage has its own user pool**, so a token from `dev` is rejected by `prod`.
 - Report a vulnerability privately to the maintainer instead of opening a public issue.
 

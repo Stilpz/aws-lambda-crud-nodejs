@@ -2,7 +2,8 @@
 # Post-deploy smoke test: authentication and per-user isolation against a deployed stage.
 #
 # Creates two throwaway Cognito users, runs the checks, then deletes the users and the task it
-# created. Needs the AWS CLI (with credentials), curl and node on the PATH.
+# created. Needs the AWS CLI (with credentials allowed to create users and sign them in through the
+# admin API), curl and node on the PATH. Works in every stage.
 #
 #   STAGE=dev REGION=us-west-2 ./scripts/smoke.sh
 #
@@ -58,9 +59,13 @@ create_user() {
     --username "$1" --password "$PASSWORD" --permanent >/dev/null
 }
 
+# The admin flow works in every stage: it needs AWS credentials, so an app or a browser cannot use it,
+# and the client allows the public password flow only in dev. The ID token is the same one the
+# JWT authorizer validates.
 get_token() {
-  aws cognito-idp initiate-auth --region "$REGION" --auth-flow USER_PASSWORD_AUTH \
-    --client-id "$CLIENT_ID" --auth-parameters "USERNAME=$1,PASSWORD=$PASSWORD" \
+  aws cognito-idp admin-initiate-auth --region "$REGION" --user-pool-id "$USER_POOL_ID" \
+    --auth-flow ADMIN_USER_PASSWORD_AUTH --client-id "$CLIENT_ID" \
+    --auth-parameters "USERNAME=$1,PASSWORD=$PASSWORD" \
     --query AuthenticationResult.IdToken --output text
 }
 

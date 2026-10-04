@@ -7,7 +7,10 @@ const readYaml = (path) => parse(readFileSync(path, "utf8"), { logLevel: "error"
 
 const service = readYaml("serverless.yml");
 const { cors } = service.provider.httpApi;
-const stageOrigins = Object.entries(service.stages).map(([stage, { params }]) => [stage, params.webOrigins]);
+// Only the stages that set their own origins: a stage without webOrigins (dev) inherits the default list.
+const stageOrigins = Object.entries(service.stages)
+    .filter(([, { params }]) => params.webOrigins)
+    .map(([stage, { params }]) => [stage, params.webOrigins]);
 
 const httpMethodsOfFunctions = () =>
     readdirSync("functions")
