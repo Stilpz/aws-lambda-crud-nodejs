@@ -4,7 +4,7 @@
 - **Amendments:** 1 (see below)
 - **Branch:** `add-ci-quality-gates` (started from `development`)
 - **Roadmap step:** 7 of [0000](0000-roadmap-to-layered-architecture.md)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#29](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/29), merged into `development`
 - **Supersedes / depends on:** builds on [0006](0006-redesign-task-table-keys.md) (the table design the integration job exercises); [0008](0008-add-deploy-pipeline-oidc.md) depends on this spec
 
 ## Context
@@ -126,12 +126,12 @@ One workflow, parallel jobs, each short and with one reason to fail: `lint-and-t
 - [ ] `npm run audit:prod` runs in CI, exits non-zero on a high or critical advisory in a runtime dependency, and ignores dev dependencies. (to be confirmed by the first CI run; the job and script are in place, a high advisory could not be provoked locally)
 - [ ] The `validate-template` job resolves `serverless.yml` with `serverless print`, extracts its `resources` and runs `cfn-lint` on them with no AWS credentials in the job; an intentional typo in a resource property of `serverless.yml` makes it fail. (to be confirmed by the first CI run, which needs the SERVERLESS_ACCESS_KEY secret; the print and extraction steps were run locally, cfn-lint needs Python and has run nowhere yet)
 - [x] `tests/taskRepositoryContract.js` runs against `InMemoryTaskRepository` in `npm test`, and the existing tests are unchanged (git diff shows only additions under `tests/`, apart from the in-memory double if the contract finds a drift, justified in its commit message).
-- [ ] `npm run test:integration` passes against DynamoDB Local with the same contract suite plus the Dynamo-specific cases, and fails fast with a clear message when `DYNAMODB_ENDPOINT` is unset. (the guard and its message were checked locally; the pass against DynamoDB Local is confirmed only in CI, there is no Docker here)
+- [x] `npm run test:integration` passes against DynamoDB Local with the same contract suite plus the Dynamo-specific cases, and fails fast with a clear message when `DYNAMODB_ENDPOINT` is unset. (the guard and its message were checked locally; the pass against DynamoDB Local is confirmed only in CI, there is no Docker here) Confirmed in CI on the pull request: 22 integration tests passed against DynamoDB Local.
 - [x] `npm test` still needs no Docker, network or AWS credentials and does not run the integration folder.
-- [ ] The `integration-test` job uses a pinned `amazon/dynamodb-local` tag and passes on a pull request. (the tag is pinned to 3.3.1; the pass is confirmed only in CI)
+- [x] The `integration-test` job uses a pinned `amazon/dynamodb-local` tag and passes on a pull request. (the tag is pinned to 3.3.1; the pass is confirmed only in CI) Confirmed in CI on pull request #29.
 - [x] `.github/workflows/ci.yml` declares `permissions: contents: read` and every action is pinned to a major version.
 - [x] No file under `src/` changed.
-- [ ] README, CONTRIBUTING, ARCHITECTURE, AGENTS.md and the Spanish references document the new commands and jobs, with matching structure in both languages. (English files done; the maintainer mirrors the Spanish references)
+- [x] README, CONTRIBUTING, ARCHITECTURE, AGENTS.md and the Spanish references document the new commands and jobs, with matching structure in both languages. (English files done; the maintainer mirrors the Spanish references) The Spanish references were mirrored by the maintainer after the merge.
 - [x] `npm run lint` and `npm test` pass.
 
 ## Verification
