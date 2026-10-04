@@ -1,6 +1,6 @@
 import { getOwnerId } from "./auth.js";
-import { getTask as findTask } from "./container.js";
-import { TaskNotFoundError } from "./domain/errors.js";
+import { getTask as findTask } from "../container.js";
+import { TaskNotFoundError } from "../domain/errors.js";
 
 const getTask = async (event) => {
     const { id } = event.pathParameters;

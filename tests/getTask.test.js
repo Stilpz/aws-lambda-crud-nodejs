@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getTask } from "../src/getTask.js";
+import { getTask } from "../src/handlers/getTask.js";
 import { authContext, OWNER_ID, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const invoke = (id = "task-1") => getTask({ requestContext: authContext(), pathParameters: { id } });

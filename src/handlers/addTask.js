@@ -1,7 +1,7 @@
 import { withJsonBody } from "./middleware.js";
 import { createTaskSchema } from "./schemas.js";
 import { getOwnerId } from "./auth.js";
-import { createTask } from "./container.js";
+import { createTask } from "../container.js";
 
 const addTaskHandler = async (event) => {
     const { title, description } = event.body;

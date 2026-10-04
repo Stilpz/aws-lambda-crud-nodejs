@@ -1,6 +1,6 @@
 import { getOwnerId } from "./auth.js";
-import { listTasks } from "./container.js";
-import { InvalidCursorError } from "./domain/errors.js";
+import { listTasks } from "../container.js";
+import { InvalidCursorError } from "../domain/errors.js";
 import { InvalidPaginationError, parsePagination } from "./pagination.js";
 
 const getTasks = async (event) => {

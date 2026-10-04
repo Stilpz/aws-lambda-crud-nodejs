@@ -1,6 +1,6 @@
 import { getOwnerId } from "./auth.js";
-import { deleteTask as removeTask } from "./container.js";
-import { TaskNotFoundError } from "./domain/errors.js";
+import { deleteTask as removeTask } from "../container.js";
+import { TaskNotFoundError } from "../domain/errors.js";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
