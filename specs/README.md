@@ -51,6 +51,6 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0004](0004-standardize-error-responses.md) | Standardize error responses behind one boundary | Implemented |
 | [0005](0005-migrate-orphan-task-owners.md) | Migrate tasks that have no owner | Superseded by 0006 |
 | [0006](0006-redesign-task-table-keys.md) | Redesign the task table keys | Implemented |
-| [0007](0007-add-ci-quality-gates.md) | Add CI quality gates | Approved |
+| [0007](0007-add-ci-quality-gates.md) | Add CI quality gates | Implemented |
 
 Specs are written in English and are not translated: they are contracts, and one authoritative text avoids divergence.

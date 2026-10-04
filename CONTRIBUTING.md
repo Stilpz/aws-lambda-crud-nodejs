@@ -90,7 +90,7 @@ git rebase development
 
 ## 7. Open the pull request
 
-Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint, coverage, OpenAPI lint, dependency audit and integration tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
+Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint, coverage, OpenAPI lint, dependency audit, template validation and integration tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
 
 ## Reporting problems
 

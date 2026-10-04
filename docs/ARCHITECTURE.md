@@ -25,7 +25,7 @@ Client ──HTTPS + JWT──┼─▶ API Gateway (HTTP API) ──▶ JWT aut
 | Data | DynamoDB `Tasks-<stage>`, on-demand billing, partition key `ownerId`, sort key `id` (a time-sortable UUID version 7), no secondary index |
 | Request handling | middy: JSON body parser, Ajv JSON Schema validation, error-to-HTTP mapping |
 | Infrastructure as code | Serverless Framework v4, a single `serverless.yml` |
-| Delivery | CI runs lint, unit tests with a coverage threshold, OpenAPI lint, a runtime dependency audit and DynamoDB Local integration tests on the four long-lived branches; deploys are manual |
+| Delivery | CI runs lint, unit tests with a coverage threshold, OpenAPI lint, a runtime dependency audit, a CloudFormation lint of the `serverless.yml` resources and DynamoDB Local integration tests on the four long-lived branches; deploys are manual |
 
 ### Request lifecycle
 
@@ -116,7 +116,7 @@ The roadmap is governed by [spec 0000](../specs/0000-roadmap-to-layered-architec
 | 4 | `migrate-orphan-task-owners` | Script that assigns `ownerId` to tasks created before ownership, or deletes them. Built in [spec 0005](../specs/0005-migrate-orphan-task-owners.md), then **retired** by step 5, which makes the problem impossible | Dry run on the dev table |
 | 5 | `redesign-task-table-keys` | New table `Tasks-<stage>` keyed `ownerId` and `id` (UUID version 7): consistent listing, no GSI, ownership implicit in the key. The old table is replaced, not migrated. **Done**, [spec 0006](../specs/0006-redesign-task-table-keys.md) | Smoke test. Breaking for cursors and for the old table's data |
 | 6 | `add-observability-with-powertools` | Structured logs, correlation id, tracing, metrics, log retention, alarms on 5xx, throttles and latency | Logs and alarms visible in dev |
-| 7 | `add-ci-quality-gates` | OpenAPI lint, coverage threshold, dependency audit, template validation, DynamoDB Local integration job | CI green on a pull request |
+| 7 | `add-ci-quality-gates` | OpenAPI lint, coverage threshold, dependency audit, template validation, DynamoDB Local integration job. **Done**, [spec 0007](../specs/0007-add-ci-quality-gates.md) | CI green on a pull request |
 | 8 | `add-deploy-pipeline-oidc` | Deploy from GitHub Actions through an AWS OIDC role (no long-lived keys): `development` to dev, `staging` to staging, `production` to prod with manual approval; run `scripts/smoke.sh` after each deploy | Deploy to dev from CI |
 | 9 | `harden-production-resources` | `DeletionPolicy: Retain`, point-in-time recovery, deletion protection, explicit CORS origins, route throttling, per-function IAM, MFA option, SRP or hosted UI with PKCE instead of `USER_PASSWORD_AUTH` outside dev | Template validation; deploy to staging |
 | 10 | `split-serverless-config-files` | `serverless.yml` split into `resources/` and `functions/` files | `serverless print` output unchanged |
