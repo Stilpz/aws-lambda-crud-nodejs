@@ -4,11 +4,28 @@ org: stivencardona
 service: aws-lambda-crud-nodejs
 frameworkVersion: "4"
 
+# Values that differ by stage. "default" applies to every stage that is not listed, so staging, prod
+# and any other name get the stricter values; dev opts out. alarmEmail is never committed: pass it
+# at deploy time with --param="alarmEmail=<address>" (empty means no email subscription).
+stages:
+  default:
+    params:
+      logRetentionInDays: 90
+      logLevel: INFO
+      alarmEmail: ""
+  dev:
+    params:
+      logRetentionInDays: 7
+      logLevel: DEBUG
+
 provider:
   name: aws
   runtime: nodejs24.x
   architecture: arm64
   region: us-west-2
+  tracing:
+    lambda: true
+  logRetentionInDays: ${param:logRetentionInDays}
   httpApi:
     authorizers:
       cognitoAuthorizer:
@@ -24,6 +41,10 @@ provider:
           - !Ref UserPoolClient
   environment:
     TABLE_NAME: !Ref TaskTable
+    STAGE: ${sls:stage}
+    POWERTOOLS_SERVICE_NAME: ${self:service}
+    POWERTOOLS_METRICS_NAMESPACE: TasksApi
+    POWERTOOLS_LOG_LEVEL: ${param:logLevel}
   iam:
     role:
       statements:
