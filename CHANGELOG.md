@@ -12,6 +12,7 @@ Planned as `1.2.0`: the changes below are merged to `development` and not yet re
 - A single error-mapping boundary for the task handlers ([spec 0004](specs/0004-standardize-error-responses.md)). Error bodies are unchanged: `{ "message": "..." }`, plus `errors` on validation failures.
 - A version 7 UUID generator in `src/infrastructure/uuidV7.js` ([spec 0006](specs/0006-redesign-task-table-keys.md)).
 - A smoke test check that a task appears in the listing immediately after it is created.
+- CORS on the HTTP API with explicit origins per stage (`stages.<stage>.params.webOrigins`), the `Authorization` and `Content-Type` headers, the methods of the API and the exposed `Deprecation` and `Sunset` headers; no wildcard and no credentials ([spec 0013](specs/0013-add-explicit-cors-origins.md)). Browsers on an allowed origin can now call the API.
 - The API versioning and deprecation policy, [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md), and this changelog ([spec 0017](specs/0017-define-api-versioning-policy.md)).
 
 ### Changed
