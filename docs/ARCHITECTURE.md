@@ -64,6 +64,7 @@ All of these live in `DynamoTaskRepository` (`src/infrastructure/dynamoTaskRepos
 | ESM + AWS SDK v3 | Required by middy 7; smaller, modular SDK | Node 22+ needed |
 | Validation with JSON Schema (Ajv) | One declarative source per body, used by `POST`, `PATCH` and `PUT` | Messages come from Ajv, not hand-written |
 | CORS configured on the HTTP API, with explicit origins per stage | API Gateway answers preflights without a function or a token, and the policy is one reviewed list per stage instead of code in six handlers | API Gateway ignores CORS headers from functions, so the policy cannot vary per route; a `401` from the authorizer may carry no CORS header |
+| Typed client generated from `docs/openapi.yaml` (`openapi-typescript` declarations plus a thin `openapi-fetch` factory), committed in `api-client/` | A consumer cannot drift from the contract, and a CI check fails when the committed types are stale; declarations carry no runtime code and work with JSDoc or TypeScript | A generated file in the repository; `typescript` 5 is a dev dependency because the generator requires it as a peer |
 | Stage-per-stack naming (`-<stage>`) | Stages share an account without touching each other's data or users | Resources are replaced if the naming changes |
 
 ## 4. Review findings

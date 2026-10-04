@@ -39,6 +39,7 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | --- | --- |
 | This README | Setup, authentication, API reference, consuming the API, troubleshooting |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable API contract (OpenAPI 3.0.3). Import it into Postman, Insomnia or a client generator |
+| [`api-client/`](api-client/) | Typed client and TypeScript declarations generated from the contract |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
 | [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md) | Versioning and deprecation policy: what a client can rely on and what counts as a breaking change |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release, with upgrade notes |
@@ -84,6 +85,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 ├── docs/
 │   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)
 │   └── ARCHITECTURE.md # Design, findings and roadmap
+├── api-client/         # Types generated from the contract (schema.d.ts) and a typed client factory
 ├── scripts/
 │   └── smoke.sh        # Post-deploy authentication, isolation and CORS check
 ├── .github/            # CI workflow and pull request template
@@ -472,7 +474,36 @@ await api(`/tasks/${task.id}`, { token, method: "DELETE" });
 - Treat `nextToken` as an opaque string: store it, send it back unchanged, and stop only when it is `null`.
 - Do not parse tokens or task ids; do not assume ids are sortable.
 - Do not retry `4xx` responses other than a single retry after refreshing a `401`. `5xx` responses are safe to retry for `GET` and `DELETE`; a retried `POST` can create a duplicate task because the API has no idempotency key.
-- The contract in [`docs/openapi.yaml`](docs/openapi.yaml) can generate typed clients, for example with `npx @openapitools/openapi-generator-cli`.
+- The contract in [`docs/openapi.yaml`](docs/openapi.yaml) generates the typed client in `api-client/` (see [Typed client generated from the contract](#typed-client-generated-from-the-contract)); other generators can read it too.
+
+### Typed client generated from the contract
+
+`api-client/` holds the types and a small client generated from [`docs/openapi.yaml`](docs/openapi.yaml) with `openapi-typescript` and `openapi-fetch`, so a consumer cannot drift from the API:
+
+| File | What it is |
+| --- | --- |
+| `api-client/schema.d.ts` | Generated TypeScript declarations: `paths`, `components`, `operations` and root types such as `Task` and `TaskPage`. Never edited by hand |
+| `api-client/client.js` | `createApiClient({ baseUrl, getToken })`: a typed client that sets `Authorization: Bearer <token>` from `getToken()` before each request. It does not retry or refresh tokens |
+
+```js
+import { createApiClient } from "./api-client/client.js";
+
+const client = createApiClient({ baseUrl: API_URL, getToken: () => token });
+
+const { data: task } = await client.POST("/tasks", { body: { title: "Write docs" } });
+await client.PATCH("/tasks/{id}", { params: { path: { id: task.id } }, body: { done: true } });
+const { data: page } = await client.GET("/tasks", { params: { query: { limit: 20 } } });
+```
+
+JavaScript projects use the types through JSDoc, for example `/** @type {import("./api-client/schema.js").Task} */`. After you edit the contract, regenerate the types and commit them with it:
+
+```bash
+npm run api:generate    # rewrite api-client/schema.d.ts from docs/openapi.yaml
+npm run api:check       # fails if the committed file is not what the contract generates
+npm run api:typecheck   # type-checks the client against the generated types
+```
+
+CI runs the last two, so a contract change without its regenerated types does not merge. The folder is excluded from the Lambda packages.
 
 ### Calling the API from a browser (CORS)
 
@@ -571,6 +602,9 @@ npm test                   # Vitest unit tests; DynamoDB is mocked
 npm run test:coverage      # the same tests, failing below the coverage thresholds in vitest.config.js
 npm run lint               # ESLint
 npm run lint:api           # OpenAPI lint of docs/openapi.yaml
+npm run api:generate       # regenerate api-client/schema.d.ts after a contract change
+npm run api:check          # fail if api-client/schema.d.ts is not what the contract generates
+npm run api:typecheck      # type-check api-client against the generated types
 npm run audit:prod         # npm audit of the runtime dependencies (high and critical)
 ```
 
