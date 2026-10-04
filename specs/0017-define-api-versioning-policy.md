@@ -1,6 +1,6 @@
 # 0017: Define the API versioning and deprecation policy
 
-- **Status:** Approved
+- **Status:** Implemented
 - **Branch:** `define-api-versioning-policy` (started from `development`)
 - **Roadmap step:** Frontend readiness track of [0000](0000-roadmap-to-layered-architecture.md), item "Contract stability policy"
 - **Pull request:** to be filled when opened
@@ -125,16 +125,17 @@ A spec that touches the contract adds a **Compatibility** row to its Contract im
 
 ## Acceptance criteria
 
-- [ ] `docs/API_VERSIONING.md` exists with the six sections of Scope item 1, and states the compatibility promise, what a client must not assume, the four-class table and the URL-versioning decision with the alternatives rejected.
-- [ ] The three episodes (the `{ message }` error shape, the table key change with invalidated cursors, UUID version 7 ids) are each classified in the policy with the class and the reason.
-- [ ] The deprecation process names the `Deprecation` header (RFC 9745), the `Sunset` header (RFC 8594), `Link rel="deprecation"` and OpenAPI `deprecated: true`, a minimum notice period, and the CORS exposure requirement.
-- [ ] `CHANGELOG.md` has `1.0.0`, `1.1.0` and `Unreleased` sections; `Unreleased` records the table replacement, the rejected old cursors, the version 7 ids and the data loss under Upgrade notes. Entries match `git log v1.0.0..v1.1.0` and the merged specs 0003 to 0006.
-- [ ] `docs/openapi.yaml` has the decided `info.version` and the Stability paragraph, and `git diff development -- docs/openapi.yaml` shows no change under `paths:` or `components:`.
-- [ ] `npx @redocly/cli lint docs/openapi.yaml` passes.
-- [ ] `info.version`, the changelog heading and the release checklist agree on the "one number" rule, and the policy states what the maintainer does at release time.
-- [ ] `CONTRIBUTING.md`, the pull request template, `AGENTS.md`, `README.md` and `docs/ARCHITECTURE.md` link the policy; the Spanish references match their English files in headings, table rows and code blocks.
-- [ ] No file under `src/`, `tests/`, `scripts/`, `.github/workflows/` or `serverless.yml` changed.
-- [ ] `npm run lint` and `npm test` pass.
+- [x] `docs/API_VERSIONING.md` exists with the six sections of Scope item 1, and states the compatibility promise, what a client must not assume, the four-class table and the URL-versioning decision with the alternatives rejected.
+- [x] The three episodes (the `{ message }` error shape, the table key change with invalidated cursors, UUID version 7 ids) are each classified in the policy with the class and the reason.
+- [x] The deprecation process names the `Deprecation` header (RFC 9745), the `Sunset` header (RFC 8594), `Link rel="deprecation"` and OpenAPI `deprecated: true`, a minimum notice period, and the CORS exposure requirement.
+- [x] `CHANGELOG.md` has `1.0.0`, `1.1.0` and `Unreleased` sections; `Unreleased` records the table replacement, the rejected old cursors, the version 7 ids and the data loss under Upgrade notes. Entries match `git log v1.0.0..v1.1.0` and the merged specs 0003 to 0006.
+- [x] `docs/openapi.yaml` has the decided `info.version` and the Stability paragraph, and `git diff development -- docs/openapi.yaml` shows no change under `paths:` or `components:`.
+- [x] `npx @redocly/cli lint docs/openapi.yaml` passes.
+- [x] `info.version`, the changelog heading and the release checklist agree on the "one number" rule, and the policy states what the maintainer does at release time.
+- [x] `CONTRIBUTING.md`, the pull request template, `AGENTS.md`, `README.md` and `docs/ARCHITECTURE.md` link the policy.
+- [ ] The Spanish references match their English files in headings, table rows and code blocks. (Untracked files, mirrored by the maintainer after this change.)
+- [x] No file under `src/`, `tests/`, `scripts/`, `.github/workflows/` or `serverless.yml` changed.
+- [x] `npm run lint` and `npm test` pass.
 
 ## Verification
 
