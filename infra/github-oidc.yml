@@ -201,10 +201,19 @@ Resources:
                   - cognito-idp:DescribeUserPoolClient
                   - cognito-idp:GetUserPoolMfaConfig
                   - cognito-idp:SetUserPoolMfaConfig
+                  - cognito-idp:CreateUserPoolDomain
+                  - cognito-idp:UpdateUserPoolDomain
+                  - cognito-idp:DeleteUserPoolDomain
                   - cognito-idp:TagResource
                   - cognito-idp:UntagResource
                   - cognito-idp:ListTagsForResource
                 Resource: !Sub arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+              # Read-only. Described by domain name, so it is not scoped to a user pool; confirm on the first
+              # deploy of a stage and tighten it if IAM accepts a user pool ARN here.
+              - Sid: UserPoolDomainDescribe
+                Effect: Allow
+                Action: cognito-idp:DescribeUserPoolDomain
+                Resource: "*"
               # Only scripts/smoke.sh needs these: it makes two throwaway users, signs them in through the
               # admin flow (the only flow allowed outside dev) and deletes them.
               - Sid: SmokeTestUsers
