@@ -47,11 +47,12 @@ If your change depends on another open pull request, say so in your description 
 
 ```bash
 npm run lint
-npm test
-npx @redocly/cli lint docs/openapi.yaml   # when you touched the API contract
+npm run test:coverage                     # must stay above the thresholds in vitest.config.js
+npm run lint:api                          # when you touched the API contract
+npm run audit:prod                        # when you touched dependencies
 ```
 
-Add tests for new behavior. DynamoDB is mocked in `tests/helpers.js` (`mockDynamo`), so tests never reach AWS.
+Add tests for new behavior. DynamoDB is mocked in `tests/helpers.js` (`mockDynamo`), so tests never reach AWS. If you touched the repository, also run the integration tests against DynamoDB Local: `DYNAMODB_ENDPOINT=http://localhost:8000 npm run test:integration` (start it with `docker run -p 8000:8000 amazon/dynamodb-local:3.3.1`).
 
 Then check it against a real deployment in your **own** AWS account, using a personal stage so you do not collide with anyone:
 
@@ -89,7 +90,7 @@ git rebase development
 
 ## 7. Open the pull request
 
-Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint and tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
+Push your branch to your fork and open a pull request against `Stilpz/aws-lambda-crud-nodejs:development`. The template asks for the governing spec, what changed, why, how you tested it and a checklist. CI (lint, coverage, OpenAPI lint, dependency audit and integration tests) must be green. Maintainers merge with a merge commit, not squash, so the branches keep the same history.
 
 ## Reporting problems
 

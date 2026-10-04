@@ -489,11 +489,21 @@ To add an endpoint:
 ## Testing and Linting
 
 ```bash
-npm test        # Vitest unit tests; DynamoDB is mocked
-npm run lint    # ESLint
+npm test                   # Vitest unit tests; DynamoDB is mocked
+npm run test:coverage      # the same tests, failing below the coverage thresholds in vitest.config.js
+npm run lint               # ESLint
+npm run lint:api           # OpenAPI lint of docs/openapi.yaml
+npm run audit:prod         # npm audit of the runtime dependencies (high and critical)
 ```
 
-CI runs both on every push and pull request for the four long-lived branches.
+CI runs these on every push and pull request for the four long-lived branches (the audit also runs weekly). It also runs the integration tests described next.
+
+`DynamoTaskRepository` is also tested against a real DynamoDB Local, with the same contract suite (`tests/taskRepositoryContract.js`) that the in-memory test double passes. These tests never reach AWS: they take their endpoint only from `DYNAMODB_ENDPOINT` and refuse an `amazonaws.com` endpoint.
+
+```bash
+docker run -d --rm -p 8000:8000 amazon/dynamodb-local:3.3.1
+DYNAMODB_ENDPOINT=http://localhost:8000 npm run test:integration
+```
 
 The unit tests mock DynamoDB, so they cannot prove that the authorizer, the ownership checks and the index work together. After a deploy, run the smoke test, which creates two throwaway users, checks authentication and isolation end to end, and deletes what it created:
 
@@ -580,7 +590,7 @@ feature branch ──PR──▶ development ──PR──▶ staging ──PR�
 - Promote a change by opening a pull request from one branch to the next one. Use a merge commit rather than squash, so the branches keep the same history and do not diverge.
 - After a release is live in `production`, open a pull request from `production` to `main`. `main` only receives code that has already been released, so it stays unaltered.
 - For an urgent fix, branch from `production`, open a pull request back to `production`, and then merge the fix into `staging` and `development` so it is not lost in the next promotion.
-- CI (lint and tests) runs on pushes and pull requests for all four branches. Deployments are manual.
+- CI (lint, coverage, OpenAPI lint, dependency audit and integration tests) runs on pushes and pull requests for all four branches. Deployments are manual.
 
 Recommended repository settings: make `development` the default branch so new pull requests target it, and protect all four branches by requiring a pull request, passing CI and disallowing force pushes and deletion.
 
