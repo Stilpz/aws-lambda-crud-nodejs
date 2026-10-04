@@ -1,0 +1,7 @@
+extends:
+  - recommended
+
+rules:
+  # The only operation without a 4XX response is the public GET /, which takes no input and has
+  # no failure to describe. Every task operation documents its error responses.
+  operation-4xx-response: off
