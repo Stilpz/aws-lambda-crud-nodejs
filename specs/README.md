@@ -55,6 +55,7 @@ Draft ──review──▶ Approved ──implementation──▶ Implemented
 | [0009](0009-add-observability-with-powertools.md) | Add observability with Powertools for AWS Lambda | Implemented |
 | [0010](0010-harden-production-resources.md) | Harden production resources, stage-aware | Implemented |
 | [0011](0011-split-serverless-config-files.md) | Split serverless.yml into resources and functions files | Implemented |
+| [0013](0013-add-explicit-cors-origins.md) | Add explicit CORS origins | Implemented |
 | [0016](0016-evaluate-typescript-migration.md) | Evaluate a TypeScript migration and the deployment framework | Implemented |
 | [0017](0017-define-api-versioning-policy.md) | Define the API versioning and deprecation policy | Implemented |
 | [0018](0018-decide-frontend-repository-layout.md) | Decide where the frontend lives and how it ships | Implemented |

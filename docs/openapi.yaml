@@ -17,6 +17,11 @@ info:
     **Consistency.** `GET /tasks` and `GET /tasks/{id}` both use consistent reads: a task is
     readable and appears in the list as soon as it is created or updated.
 
+    **CORS.** Browsers can call the API from the origins allowed for the stage (an explicit list,
+    never a wildcard). API Gateway answers the preflight `OPTIONS` request itself, without a
+    token; `Authorization` and `Content-Type` are the allowed request headers, and `Deprecation`
+    and `Sunset` are exposed to scripts. Credentials (cookies) are not allowed.
+
     **Stability.** Changes follow the policy in `docs/API_VERSIONING.md` of the repository:
     breaking changes need a new major version and are announced and deprecated with
     `Deprecation` and `Sunset` headers, and `info.version` always equals the release tag.

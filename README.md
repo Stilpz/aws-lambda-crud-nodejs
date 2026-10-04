@@ -46,7 +46,7 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
 | [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
 | [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |
-| [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication and per-user isolation |
+| [`scripts/smoke.sh`](scripts/smoke.sh) | Post-deploy check of authentication, per-user isolation and CORS |
 
 ## Architecture
 
@@ -85,7 +85,7 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   ├── openapi.yaml    # API contract (OpenAPI 3.0.3)
 │   └── ARCHITECTURE.md # Design, findings and roadmap
 ├── scripts/
-│   └── smoke.sh        # Post-deploy authentication and isolation check
+│   └── smoke.sh        # Post-deploy authentication, isolation and CORS check
 ├── .github/            # CI workflow and pull request template
 ├── src/
 │   ├── handlers/       # HTTP adapter: one Lambda handler per route, plus its helpers
@@ -142,6 +142,7 @@ The output lists the base URL of your API, similar to `https://xxxxxxxxxx.execut
 | `org` | top of `serverless.yml` | Replace with your own Serverless Framework org, or remove the line if you do not use one. |
 | `service` | `serverless.yml` | Optional. Rename it to change the CloudFormation stack and resource names. |
 | `provider.region` | `serverless.yml` | Change if you want another AWS region. |
+| `stages.<stage>.params.webOrigins` | `serverless.yml` | The origins that may call the API from a browser, per stage. Replace the `example.com` placeholders of `staging` and `prod` with your frontend domains. |
 
 The table, the user pool and their ARNs are built from the stage and the stack, so nothing else is tied to an account. Handlers read the table name from the `TABLE_NAME` environment variable that `serverless.yml` sets.
 
@@ -447,6 +448,31 @@ await api(`/tasks/${task.id}`, { token, method: "DELETE" });
 - Do not retry `4xx` responses other than a single retry after refreshing a `401`. `5xx` responses are safe to retry for `GET` and `DELETE`; a retried `POST` can create a duplicate task because the API has no idempotency key.
 - The contract in [`docs/openapi.yaml`](docs/openapi.yaml) can generate typed clients, for example with `npx @openapitools/openapi-generator-cli`.
 
+### Calling the API from a browser (CORS)
+
+A browser app on another origin can call the API only from an origin the stage allows. API Gateway answers the preflight `OPTIONS` request itself, so it needs no token, and adds the CORS headers to the real responses. The policy lives in `provider.httpApi.cors` of `serverless.yml`:
+
+| Setting | Value |
+| --- | --- |
+| Allowed origins | The `webOrigins` list of the stage (`stages.<stage>.params.webOrigins`). `dev` and any stage that is not listed allow only `http://localhost:5173`; `staging` and `prod` list their own `https` origins. There is no wildcard |
+| Allowed headers | `Authorization`, `Content-Type` |
+| Allowed methods | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` |
+| Exposed response headers | `Deprecation`, `Sunset` (the [deprecation signals](docs/API_VERSIONING.md#4-deprecation-and-removal) a browser client can read) |
+| Credentials | Not allowed. The token travels in the `Authorization` header, not in a cookie |
+| Preflight cache | 3600 seconds |
+
+To allow another origin, add it to the stage's `webOrigins` list (an `https` origin, or `http://localhost:<port>` in the `default` stage only) and deploy; `npm test` rejects a wildcard, an `http` origin outside local development and a missing header. API Gateway ignores CORS headers set by a function once this configuration exists, so the handlers set none.
+
+Check a deployed stage with `curl` (replace the origin with an allowed one):
+
+```bash
+curl -si -X OPTIONS $API_URL/tasks -H "Origin: http://localhost:5173" \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Access-Control-Request-Headers: authorization,content-type" | grep -i "^access-control"
+```
+
+The answer repeats the allowed origin exactly; an origin that is not on the list gets no `Access-Control-Allow-Origin` header. `scripts/smoke.sh` runs these checks (`CORS_ORIGIN` selects the origin) and prints whether the `401` that API Gateway returns for a missing token also carries the header: without it, a browser reports an expired token as a network error instead of a `401`, so a frontend should treat an opaque failure on an authenticated call as a possible expired session.
+
 ## Error Model
 
 Errors from the functions have the shape `{ "message": "..." }`. Validation errors (`400` on `POST` and `PUT`) add the failing fields:
@@ -605,7 +631,6 @@ Other subscribers (chat, paging) can be added to the same SNS topic without chan
 This is a learning-oriented project, so it leaves out several things a production service would need:
 
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
-- **No CORS configuration.** Browsers on another origin cannot call the API yet. Add `@middy/http-cors` or an `httpApi.cors` setting when a frontend needs it.
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
 - **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility. Its deprecation will follow the [deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal).
 - **Throttling is one limit for every route** (see [Protected stages](#protected-stages)), with no per-user limit, and there is no custom domain.
