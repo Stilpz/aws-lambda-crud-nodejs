@@ -1,6 +1,6 @@
 # 0017: Define the API versioning and deprecation policy
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `define-api-versioning-policy` (started from `development`)
 - **Roadmap step:** Frontend readiness track of [0000](0000-roadmap-to-layered-architecture.md), item "Contract stability policy"
 - **Pull request:** to be filled when opened
