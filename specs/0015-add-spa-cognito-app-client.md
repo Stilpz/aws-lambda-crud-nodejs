@@ -4,7 +4,7 @@
 - **Branch:** `add-spa-cognito-app-client` (started from `development`)
 - **Roadmap step:** Frontend readiness track, item "Browser-safe sign-in" of [0000](0000-roadmap-to-layered-architecture.md)
 - **Amendments:** 1 (see the end of this spec)
-- **Pull request:** to be filled when opened
+- **Pull request:** [#38](https://github.com/Stilpz/aws-lambda-crud-nodejs/pull/38), merged into `development`
 - **Supersedes / depends on:** depends on step 2 ([0003](0003-add-task-use-cases.md)), the CORS configuration of [0013](0013-add-explicit-cors-origins.md), the hardening of [0010](0010-harden-production-resources.md) and the configuration split of [0011](0011-split-serverless-config-files.md), all merged. It does not depend on the typed client of [0014](0014-generate-typed-api-client.md), so its branch is cut from `development` and the two pull requests merge independently. Opened for review against the deploy role template of the deploy pipeline spec (0008), which needs the new resource types (see Contract impact).
 
 ## Context
