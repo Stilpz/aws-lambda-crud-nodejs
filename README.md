@@ -629,7 +629,7 @@ Upgrading from a version that used the table `TaskTable-<stage>` replaces it: th
 
 ## Deploying from GitHub Actions
 
-A push to `development`, `staging` or `production` runs CI and, if it passes, deploys that branch to its stage with [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), then runs `scripts/smoke.sh` against the stage. `main` is never deployed. The workflow gets short-lived AWS credentials by assuming a role through OpenID Connect, so no AWS access key is stored in GitHub.
+A push to `development`, `staging` or `production` runs CI and, if it passes, deploys that branch to its stage with [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), then runs `scripts/smoke.sh` against the stage, with the first CORS origin the stage allows (read from `serverless.yml`) as `CORS_ORIGIN`. `main` is never deployed. The workflow gets short-lived AWS credentials by assuming a role through OpenID Connect, so no AWS access key is stored in GitHub.
 
 | Branch | Stage | GitHub Environment | Gate |
 | --- | --- | --- | --- |
