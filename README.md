@@ -39,6 +39,8 @@ Requests are authenticated with a JWT issued by an Amazon Cognito user pool. Eac
 | This README | Setup, authentication, API reference, consuming the API, troubleshooting |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Machine-readable API contract (OpenAPI 3.0.3). Import it into Postman, Insomnia or a client generator |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Current design, decisions, review findings and the roadmap to a layered architecture |
+| [`docs/API_VERSIONING.md`](docs/API_VERSIONING.md) | Versioning and deprecation policy: what a client can rely on and what counts as a breaking change |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release, with upgrade notes |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute from a fork, step by step |
 | [`specs/`](specs/README.md) | Spec-driven change process: every modification has an approved spec that acts as its contract, plus the roadmap |
 | [`AGENTS.md`](AGENTS.md) | Working rules for agents and contributors: workflow, architecture rules, engineering standards, definition of done |
@@ -192,6 +194,8 @@ curl -H "Authorization: Bearer $TOKEN" $API_URL/tasks
 Tokens expire after one hour by default. Repeat step 3 to get a new one. Keep the `$TOKEN` variable in the same terminal session where you run the `curl` examples below.
 
 ## API Reference
+
+What a client can rely on, what counts as a breaking change and how changes are deprecated are defined in the [API versioning policy](docs/API_VERSIONING.md); releases are listed in the [changelog](CHANGELOG.md).
 
 All request and response bodies are JSON. Error responses have the shape `{ "message": "..." }`. Except for `GET /`, every endpoint needs the `Authorization` header described in [Authentication](#authentication), and answers `401` when it is missing or invalid. A task can only be read, changed or deleted by the user who created it: asking for another user's task returns `404 Task not found`, the same answer as for a task that does not exist.
 
@@ -526,7 +530,7 @@ This is a learning-oriented project, so it leaves out several things a productio
 - **Users are managed outside the API.** There is no sign-up, password reset or token refresh endpoint. Create users with the AWS CLI or the Cognito console, and use Cognito's own APIs for the rest.
 - **No CORS configuration.** Browsers on another origin cannot call the API yet. Add `@middy/http-cors` or an `httpApi.cors` setting when a frontend needs it.
 - **`POST /tasks` is not idempotent.** A retried request can create a duplicate task; there is no idempotency key.
-- **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility.
+- **`PUT /tasks/{id}` is a partial update** (PATCH semantics) kept for compatibility. Its deprecation will follow the [deprecation process](docs/API_VERSIONING.md#4-deprecation-and-removal).
 - **No rate limiting or throttling beyond the API Gateway defaults**, and no custom domain.
 - **Local invocation needs hand-written authorizer claims** and still uses the deployed table.
 

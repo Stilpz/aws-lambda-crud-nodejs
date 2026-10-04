@@ -128,6 +128,7 @@ Suggested order, as amended in [spec 0000](../specs/0000-roadmap-to-layered-arch
 
 ## 7. Open decisions
 
-- Keep the `{ message }` error shape, or adopt RFC 9457 problem details (breaking for clients).
+- Keep the `{ message }` error shape, or adopt RFC 9457 problem details. Kept for now ([spec 0004](../specs/0004-standardize-error-responses.md)); changing it is a breaking change under the [versioning policy](API_VERSIONING.md).
+- Resolved: what counts as a breaking change, how changes are deprecated, and how `info.version`, the git tags and the changelog relate are defined in [`API_VERSIONING.md`](API_VERSIONING.md) ([spec 0017](../specs/0017-define-api-versioning-policy.md)).
 - Resolved: Serverless Framework v4 stays, with SAM as the documented fallback, and the code stays JavaScript with JSDoc types checked by `tsc`; forks without a Serverless account still cannot deploy as is ([decision record](decisions/0001-typing-and-deployment-framework.md), [spec 0016](../specs/0016-evaluate-typescript-migration.md)).
 - Resolved: the listing no longer uses a GSI; it moved to the key redesign ([spec 0006](../specs/0006-redesign-task-table-keys.md)).
