@@ -1,6 +1,6 @@
 # 0004: Standardize error responses behind one boundary
 
-- **Status:** Draft
+- **Status:** Approved
 - **Branch:** `standardize-error-responses` (started from `development`)
 - **Roadmap step:** 3 of [0000](0000-roadmap-to-layered-architecture.md)
 - **Pull request:** to be filled when opened
