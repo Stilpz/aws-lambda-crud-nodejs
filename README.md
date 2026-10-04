@@ -81,18 +81,21 @@ The DynamoDB table, the Cognito user pool and app client, the authorizer and the
 │   └── smoke.sh        # Post-deploy authentication and isolation check
 ├── .github/            # CI workflow and pull request template
 ├── src/
-│   ├── hello.js        # GET    /             health-check style greeting (public)
-│   ├── addTask.js      # POST   /tasks        create a task
-│   ├── getTasks.js     # GET    /tasks        list the caller's tasks
-│   ├── getTask.js      # GET    /tasks/{id}   fetch one task
-│   ├── updateTask.js   # PUT    /tasks/{id}   partially update a task
-│   ├── deleteTask.js   # DELETE /tasks/{id}   delete a task
-│   ├── auth.js         # Reads the caller's user id from the JWT claims
-│   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
-│   ├── schemas.js      # JSON Schemas for the create and update bodies
-│   ├── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
+│   ├── handlers/       # HTTP adapter: one Lambda handler per route, plus its helpers
+│   │   ├── hello.js        # GET    /             health-check style greeting (public)
+│   │   ├── addTask.js      # POST   /tasks        create a task
+│   │   ├── getTasks.js     # GET    /tasks        list the caller's tasks
+│   │   ├── getTask.js      # GET    /tasks/{id}   fetch one task
+│   │   ├── updateTask.js   # PUT    /tasks/{id}   partially update a task
+│   │   ├── deleteTask.js   # DELETE /tasks/{id}   delete a task
+│   │   ├── auth.js         # Reads the caller's user id from the JWT claims
+│   │   ├── middleware.js   # Shared middy stack: JSON body, validation and error responses
+│   │   ├── schemas.js      # JSON Schemas for the create and update bodies
+│   │   └── pagination.js   # limit parsing for GET /tasks; nextToken is passed on as an opaque cursor
+│   ├── application/    # One use case per operation: createTask, getTask, listTasks, updateTask, deleteTask
 │   ├── domain/         # Task type, domain errors and the TaskRepository port (imports nothing else)
-│   └── infrastructure/ # DynamoTaskRepository, the DynamoDB client and the composition root
+│   ├── infrastructure/ # DynamoTaskRepository and the DynamoDB client
+│   └── container.js    # Composition root: wires the use cases to the infrastructure
 └── tests/              # Vitest unit tests; DynamoDB is mocked, nothing reaches AWS
 ```
 
@@ -478,9 +481,9 @@ Local invocations still talk to the real table, so it must be deployed first and
 
 To add an endpoint:
 
-1. Create a handler in `src/`, exporting an async function that returns `{ statusCode, body }`. For a handler that reads a JSON body, wrap it with `withJsonBody` from `src/middleware.js` and a schema from `src/schemas.js`.
-2. Register it under `functions` in `serverless.yml` with its `httpApi` path and method, and the `cognitoAuthorizer` authorizer unless the route is meant to be public.
-3. Scope its data with `getOwnerId` from `src/auth.js`.
+1. Add a use case in `src/application/`: a factory `makeXxx({ taskRepository, ... })` that returns an async function taking the caller as `ownerId`. Wire it in `src/container.js`. If it needs new persistence, extend the `TaskRepository` port and `DynamoTaskRepository` first.
+2. Add a handler in `src/handlers/`, exporting an async function that returns `{ statusCode, body }`. For a handler that reads a JSON body, wrap it with `withJsonBody` from `src/handlers/middleware.js` and a schema from `src/handlers/schemas.js`. Read the caller with `getOwnerId` from `src/handlers/auth.js`.
+3. Register it under `functions` in `serverless.yml` (handler `src/handlers/<file>.<export>`) with its `httpApi` path and method, and the `cognitoAuthorizer` authorizer unless the route is meant to be public.
 4. Add tests, then deploy and try it.
 
 ## Testing and Linting

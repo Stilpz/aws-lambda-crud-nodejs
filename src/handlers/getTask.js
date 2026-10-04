@@ -1,24 +1,25 @@
 import { getOwnerId } from "./auth.js";
-import { taskRepository } from "./infrastructure/taskRepository.js";
+import { getTask as findTask } from "../container.js";
+import { TaskNotFoundError } from "../domain/errors.js";
 
 const getTask = async (event) => {
     const { id } = event.pathParameters;
 
     try {
-        const task = await taskRepository.findById(getOwnerId(event), id);
-
-        if (!task) {
-            return {
-                statusCode: 404,
-                body: JSON.stringify({ message: "Task not found" }),
-            };
-        }
+        const task = await findTask({ ownerId: getOwnerId(event), id });
 
         return {
             statusCode: 200,
             body: JSON.stringify(task),
         };
     } catch (error) {
+        if (error instanceof TaskNotFoundError) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ message: "Task not found" }),
+            };
+        }
+
         console.error("Error retrieving task:", error);
 
         return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InvalidPaginationError, parsePagination } from "../src/pagination.js";
+import { InvalidPaginationError, parsePagination } from "../src/handlers/pagination.js";
 
 describe("parsePagination", () => {
     it("uses a default limit and no cursor when nothing is sent", () => {

@@ -40,13 +40,13 @@ provider:
 
 functions:
   hello:
-    handler: src/hello.hello
+    handler: src/handlers/hello.hello
     events:
       - httpApi:
           path: /
           method: get
   createTask:
-    handler: src/addTask.addTask
+    handler: src/handlers/addTask.addTask
     events:
       - httpApi:
           path: /tasks
@@ -54,7 +54,7 @@ functions:
           authorizer:
             name: cognitoAuthorizer
   getTasks:
-    handler: src/getTasks.getTasks
+    handler: src/handlers/getTasks.getTasks
     events:
       - httpApi:
           path: /tasks
@@ -62,7 +62,7 @@ functions:
           authorizer:
             name: cognitoAuthorizer
   getTask:
-    handler: src/getTask.getTask
+    handler: src/handlers/getTask.getTask
     events:
       - httpApi:
           path: /tasks/{id}
@@ -70,7 +70,7 @@ functions:
           authorizer:
             name: cognitoAuthorizer
   updateTask:
-    handler: src/updateTask.updateTask
+    handler: src/handlers/updateTask.updateTask
     events:
       - httpApi:
           path: /tasks/{id}
@@ -78,7 +78,7 @@ functions:
           authorizer:
             name: cognitoAuthorizer
   deleteTask:
-    handler: src/deleteTask.deleteTask
+    handler: src/handlers/deleteTask.deleteTask
     events:
       - httpApi:
           path: /tasks/{id}

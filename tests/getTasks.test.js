@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getTasks } from "../src/getTasks.js";
+import { getTasks } from "../src/handlers/getTasks.js";
 import { authContext, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const tokenFor = (key) => Buffer.from(JSON.stringify(key)).toString("base64url");

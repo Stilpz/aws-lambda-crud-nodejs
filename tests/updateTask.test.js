@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { updateTask } from "../src/updateTask.js";
+import { updateTask } from "../src/handlers/updateTask.js";
 import { authContext, conditionalCheckFailed, jsonEvent, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const invoke = (body, id = "task-1") => updateTask(jsonEvent(body, { id }), {});

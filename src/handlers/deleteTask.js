@@ -1,12 +1,12 @@
 import { getOwnerId } from "./auth.js";
-import { TaskNotFoundError } from "./domain/errors.js";
-import { taskRepository } from "./infrastructure/taskRepository.js";
+import { deleteTask as removeTask } from "../container.js";
+import { TaskNotFoundError } from "../domain/errors.js";
 
 const deleteTask = async (event) => {
     const { id } = event.pathParameters;
 
     try {
-        await taskRepository.delete(getOwnerId(event), id);
+        await removeTask({ ownerId: getOwnerId(event), id });
 
         return {
             statusCode: 200,

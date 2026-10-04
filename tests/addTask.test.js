@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addTask } from "../src/addTask.js";
+import { addTask } from "../src/handlers/addTask.js";
 import { authContext, jsonEvent, OWNER_ID, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const invoke = (event) => addTask(event, {});

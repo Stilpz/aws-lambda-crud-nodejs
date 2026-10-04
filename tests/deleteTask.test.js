@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deleteTask } from "../src/deleteTask.js";
+import { deleteTask } from "../src/handlers/deleteTask.js";
 import { authContext, conditionalCheckFailed, mockDynamo, silenceErrorLogs } from "./helpers.js";
 
 const invoke = (id = "task-1") => deleteTask({ requestContext: authContext(), pathParameters: { id } });

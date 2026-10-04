@@ -1,30 +1,18 @@
-import { randomUUID } from "crypto";
-
 import { withJsonBody } from "./middleware.js";
 import { createTaskSchema } from "./schemas.js";
 import { getOwnerId } from "./auth.js";
-import { taskRepository } from "./infrastructure/taskRepository.js";
+import { createTask } from "../container.js";
 
 const addTaskHandler = async (event) => {
-    const { title, description = "" } = event.body;
-    const createdAt = new Date().toISOString();
-    const id = randomUUID();
-
-    const newTask =  {
-        id,
-        ownerId: getOwnerId(event),
-        title,
-        description,
-        createdAt,
-        done: false,
-    };
+    const { title, description } = event.body;
+    const ownerId = getOwnerId(event);
 
     try {
-        await taskRepository.create(newTask);
+        const task = await createTask({ ownerId, title, description });
 
         return {
             statusCode: 201,
-            body: JSON.stringify(newTask),
+            body: JSON.stringify(task),
         };
     } catch (error) {
         console.error("Error creating task:", error);
