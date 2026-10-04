@@ -127,6 +127,7 @@ Suggested order: 1, 2, 4, 5 (data model), 6, 7, 8 (operations), then 9 to 12. St
 
 ## 7. Open decisions
 
-- Keep the `{ message }` error shape, or adopt RFC 9457 problem details (breaking for clients).
+- Keep the `{ message }` error shape, or adopt RFC 9457 problem details. Kept for now ([spec 0004](../specs/0004-standardize-error-responses.md)); changing it is a breaking change under the [versioning policy](API_VERSIONING.md).
+- Resolved: what counts as a breaking change, how changes are deprecated, and how `info.version`, the git tags and the changelog relate are defined in [`API_VERSIONING.md`](API_VERSIONING.md) ([spec 0017](../specs/0017-define-api-versioning-policy.md)).
 - Whether to move away from Serverless Framework v4, which requires an account and an `org`, so forks without one cannot deploy as is.
 - Resolved: the listing no longer uses a GSI; it moved to the key redesign ([spec 0006](../specs/0006-redesign-task-table-keys.md)).
