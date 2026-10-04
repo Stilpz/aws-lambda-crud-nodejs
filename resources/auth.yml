@@ -36,10 +36,10 @@ Resources:
       ClientName: tasks-api-${sls:stage}
       UserPoolId: !Ref UserPool
       GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_PASSWORD_AUTH
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
+      # The flows come from the stage profile: dev also allows USER_PASSWORD_AUTH (password sent from
+      # the client), the other stages allow only SRP and refresh. The admin flow needs AWS credentials
+      # and is used by scripts/smoke.sh.
+      ExplicitAuthFlows: ${param:authFlows}
 Outputs:
   UserPoolId:
     Value: !Ref UserPool
