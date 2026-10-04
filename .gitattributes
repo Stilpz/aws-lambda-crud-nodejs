@@ -1,0 +1,3 @@
+# Generated from docs/openapi.yaml by `npm run api:generate`; never edited by hand. LF on every
+# platform, because `npm run api:check` compares the file byte for byte with a fresh generation.
+api-client/schema.d.ts text eol=lf linguist-generated=true

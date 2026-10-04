@@ -18,6 +18,8 @@ npm run lint         # ESLint
 npm test             # Vitest; DynamoDB is mocked, nothing reaches AWS
 npm run test:coverage   # same tests, enforcing the coverage thresholds
 npm run lint:api     # when the API contract changes
+npm run api:generate # after any change to docs/openapi.yaml; commit api-client/schema.d.ts with it
+npm run api:check    # fails if the generated types are stale (CI runs it, and api:typecheck)
 npm run test:integration   # repository against DynamoDB Local; needs DYNAMODB_ENDPOINT
 ```
 
@@ -83,7 +85,7 @@ Target layers (spec 0000): `handlers → application (use cases) → domain`, wi
 ## Documentation
 
 - English files are authoritative. Spanish references (`README.es.md`, `CONTRIBUTING.es.md`, `docs/ARCHITECTURE.es.md`) are untracked (excluded through `.git/info/exclude`) and must keep the same headings, table rows and code blocks as their English file. Update them whenever the English file changes.
-- Changing a route, status code or field updates `docs/openapi.yaml` and the README API tables in the same change.
+- Changing a route, status code or field updates `docs/openapi.yaml`, regenerates `api-client/schema.d.ts` (`npm run api:generate`) and updates the README API tables in the same change.
 - Contract changes follow `docs/API_VERSIONING.md`: the spec names the class of change (breaking, non-breaking, fix or operational), and `CHANGELOG.md` gets an entry under `Unreleased`.
 - Specs are English only and are not translated.
 

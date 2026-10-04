@@ -128,6 +128,12 @@ provider:
   # No provider-level IAM statements: each function declares the one DynamoDB action it needs in its
   # own file, and a function without statements (hello) gets a role with logging permission only.
 
+# Serverless puts everything in the service directory into the function packages unless a pattern
+# excludes it. The generated client is for API consumers and never runs in a function.
+package:
+  patterns:
+    - "!api-client/**"
+
 functions:
   - ${file(./functions/hello.yml)}
   - ${file(./functions/createTask.yml)}

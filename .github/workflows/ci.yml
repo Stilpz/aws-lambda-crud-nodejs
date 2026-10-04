@@ -25,6 +25,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run test:coverage
+      # The generated client types must match docs/openapi.yaml, and the client must still compile.
+      - run: npm run api:check
+      - run: npm run api:typecheck
 
   openapi-lint:
     if: github.event_name != 'schedule'

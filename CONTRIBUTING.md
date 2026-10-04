@@ -50,6 +50,8 @@ If your change depends on another open pull request, say so in your description 
 npm run lint
 npm run test:coverage                     # must stay above the thresholds in vitest.config.js
 npm run lint:api                          # when you touched the API contract
+npm run api:generate                      # when you touched the API contract: commit api-client/schema.d.ts with it
+npm run api:check && npm run api:typecheck  # CI runs both; they fail if the generated types are stale
 npm run audit:prod                        # when you touched dependencies
 ```
 
