@@ -1,42 +1,21 @@
 import { withJsonBody } from "./middleware.js";
 import { updateTaskSchema } from "./schemas.js";
-import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDb } from "./db.js";
 import { getOwnerId } from "./auth.js";
-
-const UPDATABLE_FIELDS = ['done', 'title', 'description'];
+import { TaskNotFoundError } from "./domain/errors.js";
+import { taskRepository } from "./infrastructure/taskRepository.js";
 
 const updateTaskHandler = async (event) => {
     const { id } = event.pathParameters;
 
-    const body = event.body;
-
-    const fields = UPDATABLE_FIELDS.filter((key) => body[key] !== undefined);
-
-    const updateExpression = 'set ' + fields.map((key) => `#${key} = :${key}`).join(', ');
-    const expressionAttributeNames = Object.fromEntries(fields.map((key) => [`#${key}`, key]));
-    const expressionAttributeValues = {
-        ...Object.fromEntries(fields.map((key) => [`:${key}`, body[key]])),
-        ':ownerId': getOwnerId(event),
-    };
-
     try {
-        await dynamoDb.send(new UpdateCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { id },
-            UpdateExpression: updateExpression,
-            ExpressionAttributeNames: expressionAttributeNames,
-            ExpressionAttributeValues: expressionAttributeValues,
-            ConditionExpression: 'attribute_exists(id) AND ownerId = :ownerId',
-            ReturnValues: 'ALL_NEW',
-        }));
+        await taskRepository.update(getOwnerId(event), id, event.body);
 
         return {
             statusCode: 200,
             body: JSON.stringify({ message: 'Task updated successfully' }),
         };
     } catch (error) {
-        if (error.name === 'ConditionalCheckFailedException') {
+        if (error instanceof TaskNotFoundError) {
             return {
                 statusCode: 404,
                 body: JSON.stringify({ message: 'Task not found' }),

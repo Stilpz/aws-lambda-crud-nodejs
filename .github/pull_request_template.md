@@ -1,3 +1,7 @@
+## Spec
+
+<!-- Link the approved spec in specs/ that governs this change. Only typo and documentation-only fixes are exempt. -->
+
 ## What changed
 
 <!-- One or two sentences. -->
@@ -12,6 +16,7 @@
 
 ## Checklist
 
+- [ ] An approved spec governs this change and the diff stays inside its scope
 - [ ] The branch started from `development` and this pull request targets `development`
 - [ ] `npm run lint` and `npm test` pass
 - [ ] New behavior has tests

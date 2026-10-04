@@ -1,31 +1,23 @@
-import { QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { dynamoDb } from "./db.js";
 import { getOwnerId } from "./auth.js";
-import { encodeNextToken, InvalidPaginationError, parsePagination } from "./pagination.js";
+import { InvalidCursorError } from "./domain/errors.js";
+import { taskRepository } from "./infrastructure/taskRepository.js";
+import { InvalidPaginationError, parsePagination } from "./pagination.js";
 
 const getTasks = async (event) => {
     try {
-        const ownerId = getOwnerId(event);
-        const { limit, exclusiveStartKey } = parsePagination(event.queryStringParameters, ownerId);
+        const { limit, cursor } = parsePagination(event.queryStringParameters);
 
-        const result = await dynamoDb.send(new QueryCommand({
-            TableName: process.env.TABLE_NAME,
-            IndexName: "ownerId-createdAt-index",
-            KeyConditionExpression: "ownerId = :ownerId",
-            ExpressionAttributeValues: { ":ownerId": ownerId },
-            Limit: limit,
-            ExclusiveStartKey: exclusiveStartKey,
-        }));
+        const { items, nextCursor } = await taskRepository.listByOwner(getOwnerId(event), { limit, cursor });
 
         return {
             statusCode: 200,
             body: JSON.stringify({
-                items: result.Items,
-                nextToken: encodeNextToken(result.LastEvaluatedKey),
+                items,
+                nextToken: nextCursor,
             }),
         };
     } catch (error) {
-        if (error instanceof InvalidPaginationError) {
+        if (error instanceof InvalidPaginationError || error instanceof InvalidCursorError) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({ message: error.message }),
