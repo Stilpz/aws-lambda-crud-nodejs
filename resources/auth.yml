@@ -1,0 +1,47 @@
+# Cognito wants EnabledMfas removed, not empty, when MFA is off, so it is guarded by a condition.
+Conditions:
+  MfaEnabled: !Not
+    - !Equals
+      - ${param:mfa}
+      - "OFF"
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    # Retain keeps the users if the stack is removed or the pool is replaced.
+    DeletionPolicy: ${param:deletionPolicy}
+    UpdateReplacePolicy: ${param:deletionPolicy}
+    Properties:
+      UserPoolName: tasks-${sls:stage}
+      DeletionProtection: ${param:userPoolProtection}
+      MfaConfiguration: ${param:mfa}
+      EnabledMfas: !If
+        - MfaEnabled
+        - - SOFTWARE_TOKEN_MFA
+        - !Ref AWS::NoValue
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: tasks-api-${sls:stage}
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      # The flows come from the stage profile: dev also allows USER_PASSWORD_AUTH (password sent from
+      # the client), the other stages allow only SRP and refresh. The admin flow needs AWS credentials
+      # and is used by scripts/smoke.sh.
+      ExplicitAuthFlows: ${param:authFlows}
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
