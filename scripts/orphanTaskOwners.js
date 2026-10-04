@@ -1,5 +1,7 @@
 import { parseArgs } from "node:util";
 
+import { DeleteCommand, ScanCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+
 const DEFAULT_REGION = "us-west-2";
 // A Cognito user's "sub" is a UUID; anything else is almost certainly a typo.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -68,4 +70,68 @@ export const parseCliArguments = (argv, env = {}) => {
         action: values.delete ? { type: "delete" } : { type: "assign", ownerId: values.owner },
         apply: Boolean(values.apply),
     };
+};
+
+// Every write carries this condition, so a task that already has an owner is never touched and
+// running the migration twice is harmless.
+const NO_OWNER = "attribute_not_exists(ownerId)";
+
+const writeFor = (tableName, id, action) =>
+    action.type === "delete"
+        ? new DeleteCommand({ TableName: tableName, Key: { id }, ConditionExpression: NO_OWNER })
+        : new UpdateCommand({
+            TableName: tableName,
+            Key: { id },
+            UpdateExpression: "set ownerId = :ownerId",
+            ConditionExpression: NO_OWNER,
+            ExpressionAttributeValues: { ":ownerId": action.ownerId },
+        });
+
+// Only the key is read. The write condition is what keeps the migration safe, so this filter is
+// an optimization and not something the migration trusts.
+async function* findOrphanIds(client, tableName) {
+    let exclusiveStartKey;
+
+    do {
+        const page = await client.send(new ScanCommand({
+            TableName: tableName,
+            FilterExpression: NO_OWNER,
+            ProjectionExpression: "id",
+            ExclusiveStartKey: exclusiveStartKey,
+        }));
+
+        for (const item of page.Items ?? []) {
+            yield item.id;
+        }
+
+        exclusiveStartKey = page.LastEvaluatedKey;
+    } while (exclusiveStartKey);
+}
+
+export const migrateOrphanTasks = async ({ client, tableName, action, apply, log = () => {} }) => {
+    const summary = { found: 0, changed: 0, skipped: 0, failed: 0 };
+    const verb = action.type === "delete" ? "delete" : `assign ${action.ownerId} to`;
+
+    for await (const id of findOrphanIds(client, tableName)) {
+        summary.found++;
+
+        if (!apply) {
+            log(`would ${verb} task ${id}`);
+            continue;
+        }
+
+        try {
+            await client.send(writeFor(tableName, id, action));
+            summary.changed++;
+        } catch (error) {
+            if (error.name === "ConditionalCheckFailedException") {
+                summary.skipped++;
+            } else {
+                summary.failed++;
+                log(`failed on task ${id}: ${error.message}`);
+            }
+        }
+    }
+
+    return summary;
 };
